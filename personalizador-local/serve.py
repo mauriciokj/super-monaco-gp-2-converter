@@ -11,6 +11,7 @@ FILES = {
     '/index.html': ('index.html', 'text/html; charset=utf-8'),
     '/core.js': ('core.js', 'text/javascript; charset=utf-8'),
     '/spec.js': ('spec.js', 'text/javascript; charset=utf-8'),
+    '/pipeline.js': ('pipeline.js', 'text/javascript; charset=utf-8'),
     '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
     '/style.css': ('style.css', 'text/css; charset=utf-8'),
 }
@@ -18,7 +19,20 @@ FILES = {
 
 class LocalHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        item = FILES.get(urlsplit(self.path).path)
+        requested = urlsplit(self.path).path
+        if requested == '/local-grid2026-data.js':
+            # Explicit private local delta. ROMs and arbitrary paths stay inaccessible.
+            payload = ROOT / 'local-grid2026-data.js'
+            data = payload.read_bytes() if payload.is_file() else b'window.LOCAL_GRID2026_PATCH = null;\n'
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/javascript; charset=utf-8')
+            self.send_header('Content-Length', str(len(data)))
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.end_headers()
+            self.wfile.write(data)
+            return
+        item = FILES.get(requested)
         if item is None:
             self.send_error(404)
             return
@@ -42,7 +56,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     server = HTTPServer(('127.0.0.1', args.port), LocalHandler)
     print(f'Prévia local: http://127.0.0.1:{server.server_port}', flush=True)
-    print('Somente arquivos da interface; nenhum upload aceito. Ctrl+C encerra.', flush=True)
+    print('Interface e pacote privado2026 local; nenhum upload ou ROM servido. Ctrl+C encerra.', flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -3,6 +3,7 @@
 
   const core = window.RomCustomizer;
   const spec = window.PORTRAIT_SPEC;
+  const pipeline = window.Grid2026Pipeline;
   const $ = id => document.getElementById(id);
   const el = {
     romFile: $('romFile'), romDropzone: $('romDropzone'), romStatus: $('romStatus'), romBadge: $('romBadge'),
@@ -17,12 +18,14 @@
     downloadArea: $('downloadArea'), downloadRom: $('downloadRom'), downloadReport: $('downloadReport')
   };
   const state = {
-    rom: null, romName: '', romHash: '', image: null, imageName: '', conversion: null,
+    rom: null, romName: '', romHash: '', romFailure: '', sourceRom: null, sourceKind: null, sourceSha256: '',
+    compositionReady: false, patchSha256: null, image: null, imageName: '', conversion: null,
     baselineVisible: false, building: false, romToken: 0, imageToken: 0, conversionToken: 0, buildToken: 0,
     outputUrls: [], conversionTimer: null
   };
   const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
   const MAX_PIXELS = 32 * 1000 * 1000;
+  const ORIGINAL_SHA = 'c02206602e00dd8e9b6c38943b8a3be41e37d2d21c1768cf342900bce11ab4f0';
   const BASELINE_SHA = 'b840fcaa0851daf548c9c4c4dadf18d3cb78ebf9683fde897bb677b44a3ea872';
   const DEFAULT_SHARED = [0x448, 0x000, 0xeee];
 
@@ -68,7 +71,7 @@
     if (!spec || !spec.targetConfirmed) {
       setStatus(el.buildStatus, 'Confirme primeiro qual retrato deve ser substituído', 'error');
     } else if (!state.rom) {
-      setStatus(el.buildStatus, 'Carregue a ROM Grid2026 v3.3 verificada.');
+      setStatus(el.buildStatus, state.romFailure || 'Carregue a ROM original verificada para preparar a edição 2026.', state.romFailure ? 'error' : '');
     } else if (!state.image || !state.conversion) {
       setStatus(el.buildStatus, 'Adicione uma foto e confira a prévia.');
     } else if (!state.baselineVisible) {
@@ -82,6 +85,8 @@
     }
     return {
       romReady: Boolean(state.rom), imageReady: hasImage, previewReady: Boolean(state.conversion),
+      sourceKind: state.sourceKind, sourceSha256: state.sourceSha256,
+      baselineSha256: state.romHash, compositionReady: state.compositionReady,
       baselineVisible: state.baselineVisible, targetConfirmedInSpec: Boolean(spec && spec.targetConfirmed),
       targetConfirmedByUser: el.confirmTarget.checked, canBuild: canBuild(), building: state.building,
       downloadReady: !el.downloadArea.hidden
@@ -166,9 +171,30 @@
     }
   }
 
+  function localPatchBytes() {
+    const packageData = window.LOCAL_GRID2026_PATCH;
+    const contract = spec && spec.composition;
+    if (!pipeline || !contract || contract.verified !== true || !packageData || typeof packageData.base64 !== 'string')
+      throw new Error('Pacote 2026 local indisponível; prepare os dados locais do projeto.');
+    if (!packageData.base64 || packageData.size !== contract.patch.size ||
+        String(packageData.sha256).toLowerCase() !== String(contract.patch.sha256).toLowerCase())
+      throw new Error('Pacote 2026 local não corresponde à edição verificada.');
+    let binary;
+    try { binary = atob(packageData.base64); }
+    catch (_) { throw new Error('Pacote 2026 local contém dados inválidos.'); }
+    if (binary.length !== contract.patch.size) throw new Error('Pacote 2026 local tem tamanho incorreto.');
+    const patch = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) patch[i] = binary.charCodeAt(i);
+    if (core.sha256(patch).toLowerCase() !== String(contract.patch.sha256).toLowerCase())
+      throw new Error('SHA-256 do pacote 2026 local não corresponde ao contrato verificado.');
+    return patch;
+  }
+
   async function loadRom(file) {
     const token = ++state.romToken;
-    state.rom = null; state.romName = ''; state.romHash = '';
+    state.rom = null; state.romName = ''; state.romHash = ''; state.romFailure = '';
+    state.sourceRom = null; state.sourceKind = null; state.sourceSha256 = '';
+    state.compositionReady = false; state.patchSha256 = null;
     state.baselineVisible = false; el.confirmTarget.checked = false;
     clearOutput(); clearCanvas(el.baselineCanvas); el.baselinePlaceholder.hidden = false;
     el.candidateDetails.hidden = true; el.candidateGrid.replaceChildren();
@@ -185,26 +211,62 @@
     try {
       if (!/\.(md|bin|gen)$/i.test(file.name || '')) throw new Error('Formato recusado. Selecione .md, .bin ou .gen; arquivos .smd e .zip não são aceitos.');
       if (!spec || !spec.baseline || !core) throw new Error('Os dados de validação ainda não estão disponíveis.');
-      if (file.size !== spec.baseline.size || file.size !== 2097152) throw new Error('Tamanho incorreto. Esta versão precisa ter exatamente 2 MiB.');
+      if (file.size !== 1048576 && file.size !== 2097152)
+        throw new Error('Tamanho incorreto. Use a ROM original americana de 1 MiB ou a Grid2026 v3.3 de 2 MiB.');
       const data = new Uint8Array(await file.arrayBuffer());
       if (token !== state.romToken) return;
       await new Promise(resolve => setTimeout(resolve, 0));
       if (token !== state.romToken) return;
-      const hash = await Promise.resolve(core.sha256(data));
+      const hash = String(await Promise.resolve(core.sha256(data))).toLowerCase();
       if (token !== state.romToken) return;
-      if (hash.toLowerCase() !== BASELINE_SHA || hash.toLowerCase() !== String(spec.baseline.sha256).toLowerCase())
-        throw new Error('SHA-256 diferente da Grid2026 v3.3 verificada. A ROM não foi aceita.');
-      displayBaseline(data);
+      let baseline, baselineHash, patchHash = null, sourceKind, compositionReady = false;
+      if (data.length === 1048576) {
+        if (hash !== ORIGINAL_SHA)
+          throw new Error('ROM original não reconhecida. Esta ferramenta aceita apenas a revisão americana verificada de 1 MiB; outras revisões não são compatíveis.');
+        state.sourceRom = data; state.sourceKind = 'original'; state.sourceSha256 = hash;
+        if (!spec.composition || !spec.composition.original || hash !== String(spec.composition.original.sha256).toLowerCase())
+          throw new Error('Pacote 2026 local indisponível; prepare os dados locais do projeto.');
+        setStatus(el.romStatus, 'Original reconhecida. Aplicando localmente a edição Grid2026 v3.3…');
+        await new Promise(resolve => setTimeout(resolve, 0));
+        if (token !== state.romToken) return;
+        const patch = localPatchBytes();
+        const composed = await Promise.resolve(pipeline.compose2026(data, patch, spec.composition));
+        if (token !== state.romToken) return;
+        baseline = composed.rom; baselineHash = composed.sha256; patchHash = composed.patchSha256;
+        sourceKind = 'original'; compositionReady = true;
+      } else {
+        if (hash !== BASELINE_SHA || hash !== String(spec.baseline.sha256).toLowerCase())
+          throw new Error('Grid2026 v3.3 não reconhecida. Use a cópia verificada de 2 MiB ou a ROM original americana de 1 MiB.');
+        if (pipeline && spec.composition && spec.composition.verified === true) {
+          const checked = await Promise.resolve(pipeline.validateBaseline(data, spec.composition));
+          baseline = checked.rom; baselineHash = checked.sha256;
+        } else {
+          const checksum = core.checksumGenesis(data);
+          if (checksum !== spec.baseline.checksum || (data[0x18e] << 8 | data[0x18f]) !== checksum)
+            throw new Error('Checksum da Grid2026 v3.3 não corresponde à versão verificada.');
+          baseline = data; baselineHash = hash;
+        }
+        sourceKind = 'baseline';
+      }
+      if (baseline.length !== 2097152 || baselineHash !== BASELINE_SHA)
+        throw new Error('A edição 2026 resultante não corresponde à base verificada.');
+      displayBaseline(baseline);
       if (token !== state.romToken) return;
-      state.rom = data; state.romHash = hash; state.romName = file.name;
-      setBadge(el.romBadge, 'ROM validada', 'ok');
-      setStatus(el.romStatus, file.name + ' · 2 MiB · SHA-256 confirmado.', 'success');
+      state.rom = baseline; state.romHash = baselineHash; state.romName = file.name;
+      state.sourceRom = data; state.sourceKind = sourceKind; state.sourceSha256 = hash;
+      state.compositionReady = compositionReady; state.patchSha256 = patchHash;
+      state.romFailure = '';
+      setBadge(el.romBadge, sourceKind === 'original' ? 'Edição 2026 pronta' : 'ROM validada', 'ok');
+      setStatus(el.romStatus, sourceKind === 'original'
+        ? 'Original reconhecida · edição 2026 preparada. SHA-256 da base confirmado.'
+        : 'Grid2026 v3.3 reconhecida · SHA-256 confirmado.', 'success');
     } catch (error) {
       if (token !== state.romToken) return;
       state.rom = null; state.baselineVisible = false;
       el.confirmTarget.checked = false; el.baselinePlaceholder.hidden = false;
-      setBadge(el.romBadge, 'ROM recusada', 'bad');
-      setStatus(el.romStatus, error.message || 'Não foi possível ler a ROM.', 'error');
+      state.romFailure = error.message || 'Não foi possível ler a ROM.';
+      setBadge(el.romBadge, state.romFailure.startsWith('Pacote 2026') ? 'Pacote pendente' : 'ROM recusada', 'bad');
+      setStatus(el.romStatus, state.romFailure, 'error');
       setStatus(el.targetStatus, 'Carregue a ROM verificada para ver o retrato.', 'error');
     }
     renderCustomizerState();
@@ -352,6 +414,17 @@
   function safeDownloadName(name) {
     return (name || 'grid2026').replace(/\.(md|bin|gen)$/i, '').replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 70) || 'grid2026';
   }
+  function diffFromOriginal(original, output) {
+    if (!(original instanceof Uint8Array)) return null;
+    const sharedLength = Math.min(original.length, output.length);
+    let changedByteCountWithinOriginal = 0;
+    for (let i = 0; i < sharedLength; i++) if (original[i] !== output[i]) changedByteCountWithinOriginal++;
+    const appendedByteCount = Math.max(0, output.length - original.length);
+    return {
+      changedByteCountWithinOriginal, appendedByteCount,
+      totalDifferentOrAppendedBytes: changedByteCountWithinOriginal + appendedByteCount
+    };
+  }
   async function build() {
     if (!canBuild()) { renderCustomizerState(); return; }
     clearOutput();
@@ -366,12 +439,20 @@
       if (!(result.rom instanceof Uint8Array) || result.rom.length !== state.rom.length)
         throw new Error('O resultado não passou na validação de tamanho.');
       const report = {
-        format: 'Grid2026 local portrait patch report', version: spec.version,
+        format: 'Grid2026 original-to-season-to-portrait validation report', version: spec.version,
+        stages: state.sourceKind === 'original' ? ['original', 'Grid2026 v3.3', 'personalized portrait'] : ['Grid2026 v3.3', 'personalized portrait'],
+        source: { kind: state.sourceKind, size: state.sourceRom.length, sha256: state.sourceSha256 },
+        composition: {
+          applied: state.compositionReady, baselineSha256: state.romHash,
+          patchSha256: state.patchSha256, originalSha256: state.sourceKind === 'original' ? state.sourceSha256 : null
+        },
         baseline: { label: spec.baseline.label, size: state.rom.length, sha256: state.romHash },
         target: { slot: spec.target.slot, label: spec.target.label, visuallyConfirmed: true },
         image: { width: state.image.width, height: state.image.height, crop: { zoom: Number(el.zoom.value), x: Number(el.positionX.value), y: Number(el.positionY.value) } },
         output: { size: result.rom.length, sha256: result.sha256, checksumGenesis: result.checksum, compressedBytes: result.compressedBytes, changedByteCount: result.changedOffsets.length, changedOffsets: result.changedOffsets },
-        validation: { exactBaseline: true, targetRecord: true, allowedRanges: true, decodedPortrait: true }
+        portraitDiffFromBaseline: { changedByteCount: result.changedOffsets.length, changedOffsets: result.changedOffsets },
+        finalDiffFromOriginal: state.sourceKind === 'original' ? diffFromOriginal(state.sourceRom, result.rom) : null,
+        validation: { exactSource: true, exactBaseline: true, targetRecord: true, allowedRanges: true, decodedPortrait: true }
       };
       const romUrl = URL.createObjectURL(new Blob([result.rom], { type: 'application/octet-stream' }));
       const reportUrl = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2) + '\n'], { type: 'application/json' }));

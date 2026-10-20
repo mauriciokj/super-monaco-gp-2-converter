@@ -1,7 +1,7 @@
 /* Contrato auditado. Sem ROM ou gráficos do jogo. Endereços [start,end) em bytes. */
 (function(root){
   const spec = {
-  "version": 1,
+  "version": 2,
   "verified": true,
   "targetConfirmed": true,
   "target": {
@@ -84,7 +84,25 @@
     0,
     0,
     174
-  ]
+  ],
+  "composition": {
+    "verified": true,
+    "original": {
+      "size": 1048576,
+      "sha256": "c02206602e00dd8e9b6c38943b8a3be41e37d2d21c1768cf342900bce11ab4f0",
+      "checksum": 23239
+    },
+    "baseline": {
+      "label": "Grid 2026 v3.3",
+      "size": 2097152,
+      "sha256": "b840fcaa0851daf548c9c4c4dadf18d3cb78ebf9683fde897bb677b44a3ea872",
+      "checksum": 34547
+    },
+    "patch": {
+      "size": 131783,
+      "sha256": "0fbc5cd9f26ddced20f1b7cd27a61d5869dc19d2539854d109672e0f49c20830"
+    }
+  }
 };
   if (typeof module === "object" && module.exports) module.exports = spec;
   else root.PORTRAIT_SPEC = spec;

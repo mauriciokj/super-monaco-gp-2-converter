@@ -1,4 +1,4 @@
-"""Independent local check. Requires an external user-owned baseline via TEST_ROM."""
+"""Independent check of externally supplied original and known2026 reference ROMs."""
 from pathlib import Path
 import hashlib
 import json
@@ -6,8 +6,8 @@ import os
 import struct
 
 ROOT = Path(__file__).resolve().parents[1]
-if not os.environ.get('TEST_ROM'):
-    raise SystemExit('Defina TEST_ROM com o caminho externo da sua ROM Grid 2026 v3.3.')
+if not os.environ.get('TEST_ROM') or not os.environ.get('TEST_BASELINE_ROM'):
+    raise SystemExit('Defina TEST_ROM (original) e TEST_BASELINE_ROM (referência2026) com caminhos externos.')
 
 
 def decode_portrait(source, start):
@@ -63,7 +63,12 @@ def decode_portrait(source, start):
     raise ValueError('compressed portrait too long')
 
 
-base = Path(os.environ['TEST_ROM']).read_bytes()
+original = Path(os.environ['TEST_ROM']).read_bytes()
+assert len(original) == 0x100000
+assert hashlib.sha256(original).hexdigest() == 'c02206602e00dd8e9b6c38943b8a3be41e37d2d21c1768cf342900bce11ab4f0'
+base = Path(os.environ['TEST_BASELINE_ROM']).read_bytes()
+composed = (ROOT / 'evidence/composed-baseline-QA-only.bin').read_bytes()
+assert composed == base
 out = (ROOT / 'evidence/synthetic-QA-only.bin').read_bytes()
 assert len(base) == len(out) == 0x200000
 assert hashlib.sha256(base).hexdigest() == 'b840fcaa0851daf548c9c4c4dadf18d3cb78ebf9683fde897bb677b44a3ea872'
@@ -99,12 +104,24 @@ for slot in range(24):
     if slot != 11:
         off = 0x7c61c + slot * 12
         assert base[off:off + 12] == out[off:off + 12]
+        palette_offset, graphics_offset = struct.unpack_from('>II', base, off + 4)
+        assert base[palette_offset:palette_offset + 26] == out[palette_offset:palette_offset + 26]
+        before_raw, _ = decode_portrait(base, graphics_offset)
+        after_raw, _ = decode_portrait(out, graphics_offset)
+        assert before_raw == after_raw
+# Full baseline equality proves all2026 text, car colors and menu data. These
+# targeted checks additionally make regressions in unrelated visible data clear.
+assert base[0x4d30:0x4e30] == out[0x4d30:0x4e30]
+assert base[0x110000:0x114080] == out[0x110000:0x114080]
 restored = bytearray(out)
 for i in diff:
     restored[i] = base[i]
 assert restored == base
 result = {
     'status': 'passed', 'testOnly': True,
+    'source_original_sha256': hashlib.sha256(original).hexdigest(),
+    'composed2026_byte_exact_known_reference': True,
+    'unaffected_portraits_verified': 23, 'menu_and_car_color_data_unchanged': True,
     'output_sha256': hashlib.sha256(out).hexdigest(), 'size': len(out), 'changed_bytes': len(diff),
     'checksum': f'{struct.unpack_from(">H", out, 0x18e)[0]:04X}',
     'all_differences_allowlisted': True, 'independent_decoder': 'separate Python implementation',

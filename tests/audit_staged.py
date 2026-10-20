@@ -11,6 +11,8 @@ allowed = {
     'personalizador-local/core.js', 'personalizador-local/core.test.cjs',
     'personalizador-local/spec.js', 'personalizador-local/style.css',
     'personalizador-local/serve.py', 'tests/browser.cjs',
+    'personalizador-local/pipeline.js', 'personalizador-local/pipeline.test.cjs',
+    'personalizador-local/prepare-local-data.py',
     'tests/verify_output.py', 'tests/audit_staged.py',
 }
 names = subprocess.check_output(['git', 'diff', '--cached', '--name-only', '-z']).decode().split('\0')

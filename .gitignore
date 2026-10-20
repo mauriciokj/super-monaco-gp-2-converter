@@ -14,6 +14,9 @@
 !/personalizador-local/spec.js
 !/personalizador-local/style.css
 !/personalizador-local/serve.py
+!/personalizador-local/pipeline.js
+!/personalizador-local/pipeline.test.cjs
+!/personalizador-local/prepare-local-data.py
 
 /tests/*
 !/tests/browser.cjs
@@ -45,3 +48,7 @@
 **/*.pem
 **/*.key
 **/*.oesavestate/
+
+# Private 2026 delta contains game graphics; never publish or force-add it.
+/private-local/
+/personalizador-local/local-grid2026-data.js

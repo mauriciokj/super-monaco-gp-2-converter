@@ -7,8 +7,9 @@ const crypto = require('node:crypto');
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(ROOT, 'evidence');
 const ROM = process.env.TEST_ROM;
-if (!ROM) throw new Error('Defina TEST_ROM com o caminho externo da sua ROM Grid 2026 v3.3. Nenhuma ROM acompanha os testes.');
+if (!ROM) throw new Error('Defina TEST_ROM com o caminho externo da ROM original USA suportada. Nenhuma ROM acompanha os testes.');
 const core = require('../personalizador-local/core.js');
+const pipeline = require('../personalizador-local/pipeline.js');
 const spec = require('../personalizador-local/spec.js');
 const hash = b => crypto.createHash('sha256').update(b).digest('hex');
 const observations = [];
@@ -41,19 +42,29 @@ function record(name, details = {}) { observations.push({ name, pass: true, ...d
     await file('#romFile', 'invalida.bin', Buffer.from('not a ROM'));
     await page.waitForFunction(() => document.querySelector('#romStatus').textContent.includes('Tamanho incorreto'));
     record('Wrong ROM length rejected');
-    const baseline = fs.readFileSync(ROM);
+    const source = fs.readFileSync(ROM);
+    assert.equal(hash(source), spec.composition.original.sha256);
+    const sourceBefore = Buffer.from(source);
+    const patch = Buffer.from(await page.evaluate(() => window.LOCAL_GRID2026_PATCH.base64), 'base64');
+    const baseline = Buffer.from(pipeline.compose2026(source, patch, spec.composition).rom);
     assert.equal(hash(baseline), spec.baseline.sha256);
-    const corrupted = Buffer.from(baseline); corrupted[0x50000] ^= 1;
+    if (process.env.TEST_BASELINE_ROM) assert.deepEqual(baseline, fs.readFileSync(process.env.TEST_BASELINE_ROM));
+    fs.writeFileSync(path.join(OUT, 'composed-baseline-QA-only.bin'), baseline);
+    record('Original expands to exact verified Grid2026 before portrait', { sourceSize: source.length, sourceSha256: hash(source), baselineSize: baseline.length, baselineSha256: hash(baseline), byteExactReference: Boolean(process.env.TEST_BASELINE_ROM) });
+    const corrupted = Buffer.from(source); corrupted[0x50000] ^= 1;
     await file('#romFile', 'alterada.bin', corrupted);
-    await page.waitForFunction(() => document.querySelector('#romStatus').textContent.includes('SHA-256 diferente'));
+    await page.waitForFunction(() => document.querySelector('#romStatus').textContent.includes('original não reconhecida'));
     await ready('romReady', false);
     record('Same-size incompatible ROM rejected by SHA-256');
-    await file('#romFile', 'nao-intercalada.smd', baseline);
+    await file('#romFile', 'nao-intercalada.smd', source);
     await page.waitForFunction(() => document.querySelector('#romStatus').textContent.includes('Formato recusado'));
     record('SMD rejected explicitly');
     await page.locator('#romFile').setInputFiles(ROM);
     await ready('romReady'); await ready('baselineVisible');
-    record('Verified v3.3 accepted and helmet preview decoded');
+    await ready('compositionReady');
+    await ready('sourceKind', 'original');
+    await ready('baselineSha256', spec.baseline.sha256);
+    record('Attached original accepted, complete2026 composed, helmet preview decoded');
 
     const synthetic = await page.evaluate(() => {
       const c = document.createElement('canvas'); c.width = 160; c.height = 112;
@@ -85,6 +96,8 @@ function record(name, details = {}) { observations.push({ name, pass: true, ...d
     await download.saveAs(outputPath);
     const output = fs.readFileSync(outputPath);
     assert.equal(output.length, baseline.length);
+    assert.equal(output.length, source.length * 2);
+    assert.deepEqual(source, sourceBefore);
     assert.equal(output.readUInt16BE(0x18e), core.checksumGenesis(output));
     const changes = [];
     for (let i = 0; i < output.length; i++) if (output[i] !== baseline[i]) {
@@ -103,7 +116,13 @@ function record(name, details = {}) { observations.push({ name, pass: true, ...d
     });
     const reportWait = page.waitForEvent('download'); await page.locator('#downloadReport').click();
     const reportDownload = await reportWait; await reportDownload.saveAs(path.join(OUT, 'browser-download-report.json'));
-    record('Validation JSON downloaded');
+    const report = JSON.parse(fs.readFileSync(path.join(OUT, 'browser-download-report.json'), 'utf8'));
+    assert.equal(report.source.sha256, hash(source));
+    assert.equal(report.composition.baselineSha256, hash(baseline));
+    assert.equal(report.composition.applied, true);
+    assert.equal(report.portraitDiffFromBaseline.changedByteCount, changes.length);
+    assert.equal(report.finalDiffFromOriginal.appendedByteCount, 1048576);
+    record('Validation JSON separates original→2026 expansion from portrait allowlist');
     await page.locator('#buildButton').click(); await ready('downloadReady');
     const againWait = page.waitForEvent('download'); await page.locator('#downloadRom').click();
     const again = await againWait;
@@ -130,7 +149,19 @@ function record(name, details = {}) { observations.push({ name, pass: true, ...d
     await page.locator('#romFile').setInputFiles(ROM); await ready('romReady');
     await page.locator('#demoButton').click(); await ready('previewReady');
     await page.locator('#confirmTarget').check(); await page.locator('#buildButton').click(); await ready('downloadReady');
-    record('file:// entry opens, validates and builds offline');
+    await ready('compositionReady');
+    record('file:// entry composes original→2026 and builds offline');
+    // Preserve verified-baseline compatibility as a separate advanced path.
+    await file('#romFile', 'baseline-avancada.bin', baseline); await ready('romReady'); await ready('sourceKind', 'baseline');
+    record('Advanced verified2026 baseline remains accepted');
+    // Missing or damaged private data fails closed for the original path.
+    const separate = await browser.newPage();
+    await separate.goto('http://127.0.0.1:8765');
+    await separate.evaluate(() => { window.LOCAL_GRID2026_PATCH = null; });
+    await separate.locator('#romFile').setInputFiles(ROM);
+    await separate.waitForFunction(() => document.querySelector('#romStatus').textContent.includes('Pacote 2026 local indisponível'));
+    assert.equal(await separate.locator('#buildButton').isDisabled(), true);
+    await separate.close(); record('Original fails closed if private2026 package is absent');
     const external = requests.filter(r => /^https?:/.test(r.url) && !r.url.startsWith('http://127.0.0.1:8765/'));
     assert.deepEqual(external, []); assert.equal(requests.some(r => r.method !== 'GET'), false);
     assert.deepEqual(errors, []);
