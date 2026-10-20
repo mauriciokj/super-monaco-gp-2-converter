@@ -17,6 +17,9 @@ allowed = {
     'personalizador-local/app.test.cjs', 'personalizador-local/analytics.js',
     'personalizador-local/analytics.test.cjs', 'personalizador-local/prepare-public.py',
     'tests/metrics-browser.cjs', 'tests/public_package_test.py', 'docs/PUBLISHING.md',
+    'vercel.json', 'personalizador-local/season-assets.js',
+    'personalizador-local/season-recipe.js', 'personalizador-local/season-provenance.json',
+    'personalizador-local/season.test.cjs', 'personalizador-local/prepare-season-recipe.py',
 }
 names = subprocess.check_output(['git', 'diff', '--cached', '--name-only', '-z']).decode().split('\0')
 files, failures = [], []

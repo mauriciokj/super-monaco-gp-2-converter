@@ -1,16 +1,16 @@
 # Contrato técnico da prévia
 
-O aplicativo usa um contrato fixo em `personalizador-local/spec.js`; não aceita offsets ou especificações enviados pelo visitante. A original, o patch e a baseline intermediária são identificados por SHA-256 e tamanho exatos. A personalização também confere o registro de ponteiros esperado.
+O aplicativo usa um contrato fixo em `personalizador-local/spec.js`; não aceita offsets ou especificações enviados pelo visitante. A original, a receita, os retratos autorizados e a baseline intermediária são identificados por SHA-256 e tamanho exatos. A personalização também confere o registro de ponteiros esperado.
 
 ## Composição original → edição 2026
 
 Entrada suportada: original USA de 1 MiB, SHA-256 `c02206602e00dd8e9b6c38943b8a3be41e37d2d21c1768cf342900bce11ab4f0`, checksum `5AC7`, cabeçalho SEGA GENESIS e região U. Não se remove a validação de tamanho: o contrato aceita essa revisão exata.
 
-O módulo puro `pipeline.js` aplica o IPS completo existente. O parser aceita registros literais e RLE, exige cabeçalho/fim válidos, rejeita truncamentos e dados finais extras e limita patch/saída a 2 MiB. O delta contém 84 registros e trailer de tamanho final de 2 MiB. A expansão e os campos do cabeçalho vêm desse patch comprovado, sem inventar preenchimento ou reutilizar offsets da original no lugar da expansão.
+O módulo puro `season-recipe.js` usa uma receita reduzida: expande a cópia da original, aplica escritas próprias de nomes, cores, cabeçalho e ponteiros, copia dados da original por referência e reconstrói arte de seleção, mapa Enigma e miniaturas. Os 14.496 bytes derivados não estão incluídos como imagens extraídas no pacote. `season-assets.js` fornece somente os onze retratos adicionais autorizados: 22 blocos, 25.685 bytes, cada retrato com 26 bytes de paleta e 2309 de gráficos Kosinski.
 
-Depois da aplicação, a ROM inteira precisa ter 2 MiB, checksum de cabeçalho e calculado `86F3` e SHA-256 `b840fcaa0851daf548c9c4c4dadf18d3cb78ebf9683fde897bb677b44a3ea872`. A comparação com a referência conhecida foi byte a byte. Só então essa ROM intermediária pode chegar ao personalizador de retrato.
+`season-provenance.json` classifica os 84 registros do IPS de referência sem incluir esse IPS. A receita usa 92 escritas pequenas, totalizando 746 bytes, e dez cópias de 248 bytes da original, além de preenchimento e recursos derivados. Hashes de recursos e limites são conferidos antes da composição. O gerador externo reproduz a receita sem emitir ROM, IPS completo ou foto de referência.
 
-O IPS contém recursos do jogo e permanece em um sidecar privado ignorado, configurado por `prepare-local-data.py` a partir de um arquivo externo de hash fixo. A UI não precisa de uma segunda ROM ou seleção manual de patch na máquina configurada. Nenhum payload do patch está no código versionado.
+A ROM inteira resultante precisa ter 2 MiB, checksum de cabeçalho e calculado `86F3` e SHA-256 `b840fcaa0851daf548c9c4c4dadf18d3cb78ebf9683fde897bb677b44a3ea872`. A comparação com a referência conhecida foi byte a byte. Só então essa intermediária pode chegar ao personalizador de retrato. O módulo histórico `pipeline.js` mantém o parser IPS limitado e a validação da baseline avançada; não exige seleção de IPS no fluxo atual.
 
 ## Alvo e formato
 
@@ -43,6 +43,6 @@ O core confere registro completo, ponteiros, capacidade, reserva, sobreposição
 
 ## Privacidade e fronteira de confiança
 
-HTML, CSS e JavaScript são locais. A política CSP bloqueia conexões externas. Não há analytics, API, formulário remoto, carregamento de fonte, armazenamento persistente de ROM ou service worker. Trocar imagem, recorte, ROM ou confirmação revoga os links da saída anterior.
+No uso local, a CSP bloqueia conexões e a telemetria permanece desligada. Na publicação configurada, somente o endpoint de analytics aprovado pode receber uma visualização da URL canônica; custom events ficam desligados no plano Hobby. Nenhuma ROM, foto, nome de arquivo, hash do resultado ou relatório é enviado. Não há API de conversão, formulário remoto, armazenamento persistente de ROM ou service worker. Trocar imagem, recorte, ROM ou confirmação revoga os links da saída anterior.
 
-O código e o spec distribuídos são a parte confiável; a prévia não é uma garantia de segurança para um spec alterado manualmente. O servidor opcional usa uma lista fixa de arquivos e loopback, incluindo uma rota explícita para o sidecar privado. ROMs, screenshots, inventários privados e downloads nunca são servidos. A versão publicável do código não contém esse sidecar e não realiza a composição completa sem configurá-lo localmente.
+O código e o spec distribuídos são a parte confiável; a prévia não é uma garantia de segurança para um spec alterado manualmente. O servidor opcional usa uma lista fixa de arquivos e loopback. ROMs, IPS completo, screenshots, inventários privados e downloads nunca são servidos. O empacotador público inclui apenas fontes revisados e os retratos autorizados, após validar a proveniência; a receita atual realiza a composição completa com a original fornecida pelo visitante.

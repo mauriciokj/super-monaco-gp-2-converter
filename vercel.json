@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "python3 personalizador-local/prepare-public.py --out public-site --vercel",
+  "outputDirectory": "public-site",
+  "installCommand": "",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Referrer-Policy", "value": "no-referrer" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://flowofdevelopment.com https://fir-d4471.web.app" }
+      ]
+    }
+  ]
+}

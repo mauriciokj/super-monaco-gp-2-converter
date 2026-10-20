@@ -2,11 +2,11 @@
 
 Prévia local: **ROM original USA suportada + foto → edição completa Grid 2026 v3.3 + retrato personalizado**. Você escolhe a ROM original sem modificações e uma imagem pronta, ajusta o enquadramento, confere a prévia e baixa uma nova cópia de 2 MiB.
 
-Tudo é processado no navegador, sem IA, chaves, serviços externos ou upload. O código versionado não contém ROMs, fotos, gráficos extraídos, patches do jogo ou emulador. O protótipo local usa um pacote 2026 privado, separado do Git.
+ROM e foto são processadas no navegador, sem IA, chaves ou upload. A receita reduzida inclui somente os onze retratos 2026 autorizados e regras dos mods; a arte original é reconstruída a partir da ROM escolhida. Não há ROM completa, fotos de referência, IPS privado ou emulador no repositório. O uso local não envia métricas; uma publicação configurada pode registrar acessos, sem seus arquivos.
 
 ## Experimentar
 
-Com o pacote privado local já configurado, abra `personalizador-local/index.html` em um navegador moderno. Não é necessário instalar pacotes nem iniciar um servidor.
+Abra `personalizador-local/index.html` em um navegador moderno. Os arquivos necessários à composição reduzida acompanham o código; basta fornecer sua ROM original e uma foto. Não é necessário instalar pacotes nem iniciar um servidor.
 
 1. Selecione sua ROM **original USA de 1 MiB**. O aplicativo confere o hash e compõe automaticamente a edição 2026 completa.
 2. Confira a miniatura do retrato atual e marque que deseja substituir esse retrato.
@@ -20,19 +20,15 @@ Como alternativa, Python 3 pode servir somente os arquivos da interface na próp
 python3 personalizador-local/serve.py
 ```
 
-Acesse `http://127.0.0.1:8765`. O servidor escuta apenas em loopback, não aceita uploads e serve somente a interface e o pacote privado local configurado. Não serve diretórios, ROMs ou resultados dos testes. `Ctrl+C` encerra.
+Acesse `http://127.0.0.1:8765`. O servidor escuta apenas em loopback, não aceita uploads e serve somente a interface, a receita reduzida e os retratos autorizados. Não serve diretórios, ROMs, IPS privado ou resultados dos testes. `Ctrl+C` encerra.
 
-## Pacote privado e código publicável
+## Receita pública reduzida
 
-A atualização completa requer dados dos mods existentes, incluindo retratos e arte do jogo. Esses dados **não estão no Git**. Na máquina do protótipo, eles já estão configurados em `personalizador-local/local-grid2026-data.js`, ignorado pelo Git e carregado pelo navegador local. O visitante continua fornecendo apenas a ROM original e a foto.
+`season-recipe.js` compõe a edição 2026 a partir da original fornecida, reconstruindo arte, mapa e miniaturas no dispositivo. `season-assets.js` contém apenas onze retratos adicionais cuja publicação foi autorizada. `season-provenance.json` registra blocos, tamanhos e hashes para auditoria. O resultado inteiro precisa coincidir com a edição 2026 conhecida antes de trocar o retrato do jogador.
 
-Em uma nova instalação, um responsável que já tenha o patch completo verificado pode configurar o pacote local:
+O IPS completo e os arquivos privados de origem não são usados pela interface nem copiados para a publicação. O helper histórico `prepare-local-data.py` permanece disponível para uso privado legado; não é necessário para o fluxo atual.
 
-```sh
-python3 personalizador-local/prepare-local-data.py --patch "/caminho/externo/original-to-v3.3.ips"
-```
-
-O helper aceita somente o delta de 131.783 bytes com SHA-256 `0fbc5cd9f26ddced20f1b7cd27a61d5869dc19d2539854d109672e0f49c20830`. Ele não baixa nada e nunca deve ser usado para publicar o arquivo gerado. Sem esse pacote, o aplicativo explica a ausência e bloqueia a conversão da original. Uma distribuição pública que realize a atualização completa ainda depende de uma decisão sobre o fornecimento autorizado desses dados; publicar apenas o código não os inclui.
+[Publicação e métricas](docs/PUBLISHING.md) descreve o pacote estático e seus limites. O plano Vercel Hobby permite a medição de acessos preparada; eventos personalizados de conversão ficam desativados. Nenhum plano pago é contratado pelo código.
 
 ## Compatibilidade e limites
 
@@ -55,7 +51,7 @@ A primeira etapa aplica todos os mods do patch existente e exige que o resultado
 Unitários, sem ROM ou dependências:
 
 ```sh
-node --test personalizador-local/core.test.cjs personalizador-local/pipeline.test.cjs
+node --test personalizador-local/core.test.cjs personalizador-local/pipeline.test.cjs personalizador-local/app.test.cjs personalizador-local/analytics.test.cjs personalizador-local/season.test.cjs
 ```
 
 Fluxo Playwright, usando instalação local de Playwright/Chromium e sua ROM externa ao repositório. Inicie primeiro o servidor acima. Nenhum download de ROM é feito pelos testes:
@@ -65,7 +61,7 @@ TEST_ROM="/caminho/externo/original.bin" TEST_BASELINE_ROM="/caminho/externo/ref
 TEST_ROM="/caminho/externo/original.bin" TEST_BASELINE_ROM="/caminho/externo/referencia2026.bin" python3 tests/verify_output.py
 ```
 
-O pacote local precisa estar configurado antes dos testes de integração. `TEST_BASELINE_ROM` permite comparar todos os bytes com a referência externa; a verificação Python exige essa referência. Os testes criam um padrão sintético, validam o download e gravam evidências e ROMs em `evidence/`, excluída do Git e do servidor. Não reutilize os arquivos de teste como resultado da sua foto.
+`TEST_BASELINE_ROM` permite comparar todos os bytes com a referência externa; a verificação Python exige essa referência. Para incluir a equivalência integral da receita nos testes Node, use `ROM_TEST` e `BASELINE_TEST` apontando para suas entradas externas. Os testes criam um padrão sintético, validam o download e gravam evidências e ROMs em `evidence/`, excluída do Git e do servidor. Não reutilize os arquivos de teste como resultado da sua foto.
 
 [Contrato técnico](docs/TECHNICAL.md) · [Validação e limites observados](docs/VALIDATION.md)
 

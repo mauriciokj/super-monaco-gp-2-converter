@@ -7,6 +7,7 @@ const ROOT = path.resolve(__dirname, '..');
 const SITE = process.env.TEST_PUBLIC_SITE;
 const PROVIDER = process.env.TEST_PROVIDER_SCRIPT;
 if (!SITE || !PROVIDER) throw new Error('Define TEST_PUBLIC_SITE and TEST_PROVIDER_SCRIPT with local fixture paths.');
+const CUSTOM_EVENTS = JSON.parse(fs.readFileSync(path.join(SITE, 'public-manifest.json'), 'utf8')).metrics.customEvents === true;
 const ORIGIN = 'https://converter.example';
 const BASE = '/tools/smgp2/';
 const mime = name => name.endsWith('.js') ? 'application/javascript' : name.endsWith('.css') ? 'text/css' : 'text/html';
@@ -45,14 +46,15 @@ const mime = name => name.endsWith('.js') ? 'application/javascript' : name.ends
     assert.equal(requests[0].url, '/_vercel/insights/view');
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('smgp2:conversion-completed', { detail: { file: 'private-photo.jpg' } })));
     await page.waitForTimeout(350);
-    assert.equal(requests.length, 2, 'One approved conversion event');
-    assert.equal(requests[1].url, '/_vercel/insights/event');
+    assert.equal(requests.length, CUSTOM_EVENTS ? 2 : 1, 'Conversion metrics follow the confirmed plan configuration');
+    if (CUSTOM_EVENTS) assert.equal(requests[1].url, '/_vercel/insights/event');
     await page.evaluate(() => {
       window.va('event', { name: 'smgp2_conversion_completed', data: { filename: 'private-photo.jpg' } });
       window.va('event', { name: 'private-rom.bin', data: { rom: 'private bytes' } });
     });
     await page.waitForTimeout(350);
-    assert.equal(requests.length, 3, 'Unapproved event names dropped');
+    const expectedCount = CUSTOM_EVENTS ? 3 : 1;
+    assert.equal(requests.length, expectedCount, 'Unapproved or unavailable custom events dropped');
     for (const request of requests) {
       assert.equal(request.method, 'POST');
       assert.ok(!/private-photo|private-rom|private bytes|filename|file=/.test(request.body));
@@ -72,18 +74,18 @@ const mime = name => name.endsWith('.js') ? 'application/javascript' : name.ends
       window.dispatchEvent(new CustomEvent('smgp2:conversion-completed'));
     });
     await page.waitForTimeout(200);
-    assert.equal(requests.length, 3, 'Attribution inserted later cannot leak into conversion event');
+    assert.equal(requests.length, expectedCount, 'Attribution inserted later cannot leak into conversion event');
     await page.reload();
     await page.waitForTimeout(200);
-    assert.equal(await page.evaluate(() => document.scripts.length), 6, 'Existing attribution blocks loading provider');
-    assert.equal(requests.length, 3);
+    assert.equal(await page.evaluate(() => Array.from(document.scripts).some(s => new URL(s.src).pathname === '/_vercel/insights/script.js')), false, 'Existing attribution blocks loading provider');
+    assert.equal(requests.length, expectedCount);
     await page.evaluate(() => localStorage.removeItem('__va_attribution'));
     await page.goto(ORIGIN + BASE, { referer: 'https://foreign.example/?file=private-rom.bin' });
     await page.waitForTimeout(200);
-    assert.equal(await page.evaluate(() => document.scripts.length), 6, 'Foreign referrer blocks loading provider');
-    assert.equal(requests.length, 3);
-    fs.writeFileSync(path.join(ROOT, 'evidence/metrics-browser.json'), JSON.stringify({ status: 'passed', scope: 'All HTTP intercepted locally; official provider script fixture. No telemetry sent.', requests, errors, blocked }, null, 2));
-    console.log('PASS: canonical pageview, conversion allowlist, personal-data stripping, no external requests');
+    assert.equal(await page.evaluate(() => Array.from(document.scripts).some(s => new URL(s.src).pathname === '/_vercel/insights/script.js')), false, 'Foreign referrer blocks loading provider');
+    assert.equal(requests.length, expectedCount);
+    fs.writeFileSync(path.join(ROOT, 'evidence/metrics-browser.json'), JSON.stringify({ status: 'passed', customEvents: CUSTOM_EVENTS, scope: 'All HTTP intercepted locally; official provider script fixture. No telemetry sent.', requests, errors, blocked }, null, 2));
+    console.log('PASS: canonical pageview, plan-based conversion gating, personal-data stripping, no external requests');
   } catch (error) {
     const state = await page.evaluate(() => ({ url: location.href, config: window.CONVERTER_ANALYTICS_CONFIG,
       vai: window.vai, queueTypes: (window.vaq || []).map(x => x[0]), scripts: Array.from(document.scripts, s => s.src) }));

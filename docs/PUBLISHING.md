@@ -1,50 +1,43 @@
-# Preparação de publicação e métricas
+# Publicação e métricas
 
-Esta preparação ainda não foi publicada. O fluxo solicitado continua sendo **ROM original + foto**, com a temporada 2026 completa. No protótipo privado esse fluxo funciona porque o pacote de dados está instalado localmente. O clone público não inclui esse pacote.
+O fluxo é **ROM original USA + foto → temporada Grid2026 v3.3 completa + retrato personalizado**. A versão atual inclui uma receita pública reduzida e os onze retratos adicionais cuja distribuição foi autorizada. O visitante não precisa fornecer IPS nem uma ROM pré-modificada.
 
-## Dados da temporada
+## Conteúdo distribuído
 
-O IPS completo não é um pacote apenas de instruções: contém retratos e arte. Estar ignorado pelo Git não autoriza servi-lo em um site. A análise técnica encontrou arte de seleção, mapa e miniaturas que podem ser reconstruídos no dispositivo com recursos da ROM original e regras dos mods. Essa reconstrução foi comparada byte a byte com a versão 2026 conhecida.
+`season-recipe.js` reconstrói no dispositivo 14.496 bytes de arte, mapas e miniaturas a partir da ROM escolhida. O restante usa regras próprias, preenchimento e referências a dados da original. `season-assets.js` contém exatamente os onze retratos autorizados, em 22 blocos de paleta/gráficos, totalizando 25.685 bytes. Não contém as fotografias de referência.
 
-Onze retratos adicionais continuam necessários para preservar a mesma edição. Os metadados locais registram dez ilustrações geradas com referências e um PNG fornecido; não estabelecem autorização explícita para distribuição pública. Codificar esses pixels como diferenças ou referências curtas não remove o conteúdo nem comprova sua origem.
+A proveniência registra os hashes, ranges e classificação dos 84 registros do patch de referência. A composição inteira foi comparada byte a byte com a edição 2026 conhecida, sem emitir ou distribuir essa ROM. O IPS completo e os arquivos privados não entram no pacote público. A autorização dos retratos não concede direitos sobre o jogo original ou sobre arquivos fornecidos por visitantes.
 
-A interface preparada também permite um IPS verificado selecionado pelo próprio visitante, ou a entrada da ROM 2026 verificada. Essas alternativas alteram as entradas do fluxo e **não devem ser publicadas sem decisão explícita**. Nenhum patch é baixado ou enviado pelo aplicativo.
+## Hospedagem
 
-## Hospedagem existente
+O Flow usa Firebase Hosting e aceita uma URL externa na categoria Ferramenta. Os jogos Vibe Jogos usam Vercel, com publicação automática da branch `main`. O conversor será servido em uma pasta própria, sem modificar arquivos dos outros jogos, e cadastrado por URL no Flow. O código canônico está no repositório Super Monaco GP 2 Converter; a pasta da hospedagem contém somente o pacote estático produzido a partir desse código.
 
-O Flow de Development usa Firebase Hosting e aceita uma URL externa na categoria Ferramenta. Os jogos Vibe Jogos usam Vercel. O conversor pode seguir esse caminho, com seus arquivos em uma pasta própria e registro por URL no portal, preservando os outros jogos.
+A sessão existente do navegador foi confirmada e o plano exibido era **Hobby**. A tentativa de importar o repositório novo na interface da Vercel retornou falha de acesso. A integração Git já existente do Vibe Jogos permite publicar a pasta separada sem criar tokens nem ampliar permissões. Nenhuma assinatura foi alterada.
 
-O modo HTML `srcDoc` do portal limita downloads por sandbox. A integração externa também precisa testar o overlay de fallback do portal, que atualmente aparece após quatro segundos independentemente do carregamento do iframe. Não é necessário alterar outros jogos para abrir o conversor diretamente em uma aba própria.
+O modo HTML `srcDoc` do portal limita downloads por sandbox. A integração externa também deve considerar seu overlay de fallback, que aparece após quatro segundos. O botão existente para abrir em nova aba permite usar o conversor diretamente sem alterar o comportamento dos outros jogos.
 
-## Pacote público sem dados privados
+## Pacote estático
 
-`prepare-public.py` copia somente uma lista fixa de fontes da interface para uma pasta vazia e separada. Remove o carregamento do sidecar privado, gera configuração de métricas e um manifesto de arquivos com hashes. Não copia ROM, IPS, foto, resultados de teste, bibliotecas instaladas, inventários ou credenciais.
+`prepare-public.py` copia somente nove fontes revisados, incluindo os retratos autorizados, e gera configuração/manifesto: onze arquivos no total. Confere a proveniência dos recursos antes de escrever. Não copia ROMs, IPS completo, fotos de referência, testes, inventários, credenciais ou bibliotecas instaladas.
 
-Exemplo de preparação local, **não de deploy**:
+Exemplo de preparação, sem deploy:
 
 ```sh
-python3 personalizador-local/prepare-public.py --out publication/review --canonical-url https://example.com/tools/smgp2/
+python3 personalizador-local/prepare-public.py --out publication/review --canonical-url https://example.com/tools/smgp2/ --metrics
 ```
 
-O diretório resultante é uma variante que depende dos dados fornecidos pelo visitante. Prepará-lo não resolve a pendência do fluxo original + foto nem autoriza publicá-lo.
+O `vercel.json` do repositório canônico também permite um projeto dedicado: framework Other, nenhuma instalação e build Python para `public-site`. Nesse modo `--vercel` usa somente variáveis de sistema de domínio/ambiente; produção falha fechada sem `VERCEL_PROJECT_PRODUCTION_URL`. Previews mantêm métricas desativadas.
 
 ## Medição mínima
 
-`analytics.js` fica inativo sem configuração explícita. Também fica inativo em HTTP, `file://`, outro domínio ou outro caminho. Na versão pública configurada pode registrar uma visualização da URL canônica, descartando query, fragmento e campos extras. Falhas do provedor não bloqueiam a conversão.
+`analytics.js` fica inativo sem configuração explícita, em HTTP, `file://`, outro domínio ou outro caminho. Na publicação configurada registra somente uma visualização da URL canônica, sem query/fragmento ou campos fornecidos pelo visitante. Falhas do provedor não bloqueiam a conversão.
 
-O hook local `smgp2:conversion-completed` é emitido somente após validação e criação dos downloads, sem detalhes da entrada. Repetir a geração da mesma revisão não repete o hook. O adaptador admite apenas o nome fixo `smgp2_conversion_completed`, sem propriedades. ROM, IPS, foto, nomes de arquivo, hashes do resultado e relatório não entram na telemetria.
+O hook local `smgp2:conversion-completed` é emitido após validação e criação dos downloads, sem detalhes da entrada e sem duplicar a mesma revisão. Eventos personalizados exigem Pro/Enterprise e permanecem **desativados no Hobby**: o painel atual mede acessos/visitantes estimados, não conversões. Não há contratação automática, contador público ou backend novo.
 
-`--metrics` prepara pageviews da Vercel. `--custom-events-confirmed` só deve ser usado após confirmar um plano Pro/Enterprise já existente; o plano da conta ainda não foi verificado. Não há contratação automática, contador público ou backend novo. O script entregue nos jogos existentes foi observado; isso não comprova números no painel do conversor ainda não publicado.
+ROM, foto, nome de arquivo, hash do resultado e relatório não entram na telemetria. O provedor recebe metadados de rede para estatísticas. Como acrescenta atribuição e referrer depois do middleware, o adaptador bloqueia medição se houver atribuição salva de outro aplicativo, armazenamento inacessível ou referência diferente de vazio/das raízes públicas do Flow. Não limpa armazenamento dos outros jogos. Esses filtros subcontam o tráfego; visitantes estimados não representam pessoas únicas históricas.
 
-O aviso público diferencia processamento local de arquivos e envio de métricas. O provedor recebe metadados de rede e navegação para estatísticas; não se promete ausência absoluta de dados de rede. Como o script acrescenta atribuição e referrer depois do middleware, o adaptador bloqueia medição se houver atribuição salva de outro aplicativo, armazenamento inacessível ou referência diferente de vazio/das duas raízes públicas do Flow. Não limpa nem altera o armazenamento de outros jogos. Esses filtros subcontam o tráfego e devem ser considerados ao ler o painel. Visitantes estimados pela Vercel não representam pessoas únicas históricas. Um contador público acumulado exigiria persistência e controles adicionais.
+Referências: [Web Analytics](https://vercel.com/docs/analytics), [eventos e planos](https://vercel.com/docs/analytics/custom-events), [privacidade](https://vercel.com/docs/analytics/privacy-policy), [filtragem](https://vercel.com/docs/analytics/redacting-sensitive-data).
 
-Referências: [Web Analytics](https://vercel.com/docs/analytics), [eventos e planos](https://vercel.com/docs/analytics/custom-events), [privacidade](https://vercel.com/docs/analytics/privacy-policy), [filtragem de dados](https://vercel.com/docs/analytics/redacting-sensitive-data).
+## Validação
 
-## Verificação
-
-```sh
-node --test personalizador-local/core.test.cjs personalizador-local/pipeline.test.cjs personalizador-local/app.test.cjs personalizador-local/analytics.test.cjs
-python3 tests/public_package_test.py
-```
-
-`tests/browser.cjs` verifica o fluxo local com a ROM do responsável, imagens sintéticas e os dados privados já presentes. `tests/metrics-browser.cjs` verifica o adaptador com todas as requisições interceptadas, sem enviar eventos reais; exige uma cópia local do script público do provedor e uma pasta preparada de teste. Esses arquivos e ROMs de QA não entram no pacote público.
+35 testes Node, incluindo integração com a original/referência externas; sete testes Python de empacotamento; 18 verificações E2E tanto nos fontes quanto no pacote estático. O contrato de métricas foi testado com o script público real do provedor e todas as requisições interceptadas localmente, sem telemetria real. As evidências privadas e as ROMs sintéticas de QA não são distribuídas.

@@ -2,6 +2,7 @@
 /*
 !/.gitignore
 !/README.md
+!/vercel.json
 !/personalizador-local/
 !/tests/
 !/docs/
@@ -21,6 +22,11 @@
 !/personalizador-local/analytics.js
 !/personalizador-local/analytics.test.cjs
 !/personalizador-local/prepare-public.py
+!/personalizador-local/season-assets.js
+!/personalizador-local/season-recipe.js
+!/personalizador-local/season-provenance.json
+!/personalizador-local/season.test.cjs
+!/personalizador-local/prepare-season-recipe.py
 
 /tests/*
 !/tests/browser.cjs
