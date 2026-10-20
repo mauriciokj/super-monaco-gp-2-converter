@@ -17,15 +17,22 @@
 !/personalizador-local/pipeline.js
 !/personalizador-local/pipeline.test.cjs
 !/personalizador-local/prepare-local-data.py
+!/personalizador-local/app.test.cjs
+!/personalizador-local/analytics.js
+!/personalizador-local/analytics.test.cjs
+!/personalizador-local/prepare-public.py
 
 /tests/*
 !/tests/browser.cjs
 !/tests/verify_output.py
 !/tests/audit_staged.py
+!/tests/metrics-browser.cjs
+!/tests/public_package_test.py
 
 /docs/*
 !/docs/TECHNICAL.md
 !/docs/VALIDATION.md
+!/docs/PUBLISHING.md
 
 # Never version local ROMs, extracted art, generated output or private artifacts.
 **/node_modules/

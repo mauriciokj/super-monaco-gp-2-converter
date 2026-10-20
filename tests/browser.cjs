@@ -36,6 +36,7 @@ function record(name, details = {}) { observations.push({ name, pass: true, ...d
   try {
     await page.goto('http://127.0.0.1:8765');
     await page.waitForFunction(() => typeof window.renderCustomizerState === 'function');
+    await page.evaluate(() => { window.__qaCompletedEvents = []; window.addEventListener('smgp2:conversion-completed', e => window.__qaCompletedEvents.push({ detail: e.detail })); });
     assert.equal(await page.locator('#buildButton').isDisabled(), true);
     await page.screenshot({ path: path.join(OUT, 'ui-initial.png'), fullPage: true });
     record('Initial state blocks export');
@@ -85,6 +86,7 @@ function record(name, details = {}) { observations.push({ name, pass: true, ...d
     await slider('#zoom', 1.45); await slider('#positionX', 37); await slider('#positionY', 64);
     await page.locator('#confirmTarget').check(); await ready('canBuild');
     await page.locator('#buildButton').click(); await ready('downloadReady');
+    assert.deepEqual(await page.evaluate(() => window.__qaCompletedEvents), [{ detail: null }]);
     await page.screenshot({ path: path.join(OUT, 'ui-ready-desktop.png'), fullPage: true });
     await page.locator('#previewCanvas').screenshot({ path: path.join(OUT, 'synthetic-preview.png') });
     const pixels = await page.locator('#previewCanvas').evaluate(canvas => Array.from(canvas.getContext('2d').getImageData(0, 0, 64, 64).data));
@@ -128,6 +130,7 @@ function record(name, details = {}) { observations.push({ name, pass: true, ...d
     const again = await againWait;
     const againPath = path.join(OUT, 'repeat-QA-only.bin'); await again.saveAs(againPath);
     assert.equal(hash(fs.readFileSync(againPath)), hash(output));
+    assert.equal(await page.evaluate(() => window.__qaCompletedEvents.length), 1);
     record('Repeated build produces identical ROM SHA-256');
     await slider('#zoom', 2);
     await ready('downloadReady', false);
@@ -154,14 +157,32 @@ function record(name, details = {}) { observations.push({ name, pass: true, ...d
     // Preserve verified-baseline compatibility as a separate advanced path.
     await file('#romFile', 'baseline-avancada.bin', baseline); await ready('romReady'); await ready('sourceKind', 'baseline');
     record('Advanced verified2026 baseline remains accepted');
-    // Missing or damaged private data fails closed for the original path.
+    // Prepared public flow: no private package; original waits for visitor's exact local IPS.
     const separate = await browser.newPage();
+    const isolatedRequests = [];
+    separate.on('request', r => isolatedRequests.push({ method: r.method(), url: r.url() }));
+    await separate.route('**/local-grid2026-data.js', route => route.fulfill({ contentType: 'text/javascript', body: 'window.LOCAL_GRID2026_PATCH = null;' }));
     await separate.goto('http://127.0.0.1:8765');
-    await separate.evaluate(() => { window.LOCAL_GRID2026_PATCH = null; });
     await separate.locator('#romFile').setInputFiles(ROM);
-    await separate.waitForFunction(() => document.querySelector('#romStatus').textContent.includes('Pacote 2026 local indisponível'));
+    await separate.waitForFunction(() => window.renderCustomizerState().awaitingPatch);
     assert.equal(await separate.locator('#buildButton').isDisabled(), true);
-    await separate.close(); record('Original fails closed if private2026 package is absent');
+    record('Missing private package preserves original and blocks build while waiting for local IPS');
+    const wrongPatch = Buffer.from(patch); wrongPatch[10] ^= 1;
+    await separate.locator('#patchFile').setInputFiles({ name: 'incorreto.ips', mimeType: 'application/octet-stream', buffer: wrongPatch });
+    await separate.waitForFunction(() => document.querySelector('#patchStatus').classList.contains('error'));
+    assert.equal(await separate.locator('#buildButton').isDisabled(), true);
+    record('Local IPS with same size but wrong hash is rejected');
+    await separate.locator('#patchFile').setInputFiles({ name: 'grid2026.ips', mimeType: 'application/octet-stream', buffer: patch });
+    await separate.waitForFunction(() => window.renderCustomizerState().compositionReady && window.renderCustomizerState().baselineVisible);
+    assert.equal(await separate.evaluate(() => window.renderCustomizerState().baselineSha256), spec.baseline.sha256);
+    await separate.locator('#photoFile').setInputFiles({ name: 'synthetic.png', mimeType: 'image/png', buffer: Buffer.from(synthetic, 'base64') });
+    await separate.waitForFunction(() => window.renderCustomizerState().previewReady);
+    await separate.locator('#confirmTarget').check();
+    await separate.locator('#buildButton').click();
+    await separate.waitForFunction(() => window.renderCustomizerState().downloadReady);
+    assert.equal(isolatedRequests.some(r => r.method !== 'GET' || /^https?:/.test(r.url) && !r.url.startsWith('http://127.0.0.1:8765/')), false);
+    await separate.screenshot({ path: path.join(OUT, 'ui-prepared-public-flow.png'), fullPage: true });
+    await separate.close(); record('Visitor local IPS composes exact2026 and builds from original without uploading files');
     const external = requests.filter(r => /^https?:/.test(r.url) && !r.url.startsWith('http://127.0.0.1:8765/'));
     assert.deepEqual(external, []); assert.equal(requests.some(r => r.method !== 'GET'), false);
     assert.deepEqual(errors, []);

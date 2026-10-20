@@ -25,7 +25,7 @@
         <div class="hero-copy">
           <p class="eyebrow">ROM ORIGINAL + FOTO → TEMPORADA 2026 PERSONALIZADA <span class="eyebrow-line"></span></p>
           <h1 id="page-title">Seu rosto.<br><em>Seu grid.</em></h1>
-          <p class="hero-description">Escolha a ROM original e uma foto pronta. O navegador aplica a edição Grid2026 verificada, ajusta seu retrato em 9 cores e prepara uma nova cópia para jogar.</p>
+          <p class="hero-description">Escolha sua ROM e uma foto pronta. Com os dados Grid2026 verificados disponíveis localmente, o navegador prepara a temporada 2026, ajusta seu retrato em 9 cores e cria uma nova cópia para jogar.</p>
           <div class="privacy-pill"><span class="privacy-icon" aria-hidden="true">◆</span> Tudo acontece no seu navegador. Arquivos não são enviados.</div>
         </div>
         <div class="hero-art" aria-hidden="true">
@@ -41,10 +41,17 @@
         <div class="main-column">
           <section class="panel" aria-labelledby="rom-heading">
             <div class="panel-heading"><div><span class="step-index">01 / ORIGINAL</span><h2 id="rom-heading">Escolha a ROM</h2></div><span id="romBadge" class="status-badge">Aguardando arquivo</span></div>
-            <p class="section-help">Use sua cópia original americana de Super Monaco GP II (1 MiB). A edição Grid2026 v3.3 será preparada aqui. Se você já tiver a Grid2026 v3.3 verificada (2 MiB), ela também é aceita.</p>
+            <p class="section-help">Use sua cópia original americana de Super Monaco GP II (1 MiB). Para preparar a temporada, é necessário o pacote privado local ou seu próprio IPS Grid2026 v3.3 verificado. Se você já tiver a Grid2026 v3.3 verificada (2 MiB), ela também é aceita.</p>
             <label class="dropzone" for="romFile" id="romDropzone"><span class="drop-icon" aria-hidden="true">↥</span><span class="drop-title">Selecione um arquivo .md, .bin ou .gen</span><span class="drop-sub">Clique aqui para procurar no computador</span></label>
             <input id="romFile" type="file" accept=".md,.bin,.gen,application/octet-stream" aria-describedby="romStatus">
             <p id="romStatus" class="field-status" role="status">Nenhuma ROM selecionada. Aceitamos apenas a revisão original ou a Grid2026 v3.3 verificadas.</p>
+            <div id="patchSection" class="patch-section">
+              <h3>Dados da temporada no seu computador</h3>
+              <p class="section-help">Esta versão não distribui ROMs nem o IPS da temporada. Para usar a ROM original sem o pacote privado, selecione seu próprio IPS Grid2026 v3.3. Somente o arquivo exato de 131.783 bytes é aceito, após conferir seu SHA-256. Tudo é aplicado no navegador.</p>
+              <label class="button button-quiet" for="patchFile">Escolher IPS local <span aria-hidden="true">↗</span></label>
+              <input id="patchFile" type="file" accept=".ips,application/octet-stream" aria-describedby="patchStatus">
+              <p id="patchStatus" class="field-status" role="status">Nenhum IPS selecionado. Se você usar a Grid2026 v3.3 verificada de 2 MiB, este passo é dispensado.</p>
+            </div>
           </section>
 
           <section class="panel" aria-labelledby="photo-heading">

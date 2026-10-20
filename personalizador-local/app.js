@@ -7,6 +7,7 @@
   const $ = id => document.getElementById(id);
   const el = {
     romFile: $('romFile'), romDropzone: $('romDropzone'), romStatus: $('romStatus'), romBadge: $('romBadge'),
+    patchFile: $('patchFile'), patchStatus: $('patchStatus'), patchSection: $('patchSection'),
     photoFile: $('photoFile'), photoStatus: $('photoStatus'), photoBadge: $('photoBadge'), demoButton: $('demoButton'),
     cropCanvas: $('cropCanvas'), cropPlaceholder: $('cropPlaceholder'), zoom: $('zoom'), zoomValue: $('zoomValue'),
     positionX: $('positionX'), xValue: $('xValue'), positionY: $('positionY'), yValue: $('yValue'), resetButton: $('resetButton'),
@@ -21,12 +22,15 @@
     rom: null, romName: '', romHash: '', romFailure: '', sourceRom: null, sourceKind: null, sourceSha256: '',
     compositionReady: false, patchSha256: null, image: null, imageName: '', conversion: null,
     baselineVisible: false, building: false, romToken: 0, imageToken: 0, conversionToken: 0, buildToken: 0,
-    outputUrls: [], conversionTimer: null
+    outputUrls: [], conversionTimer: null, localPatch: null, patchToken: 0, patchLoading: false,
+    sourceFile: null, awaitingPatch: false, lastCompletedRevision: null
   };
   const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
   const MAX_PIXELS = 32 * 1000 * 1000;
   const ORIGINAL_SHA = 'c02206602e00dd8e9b6c38943b8a3be41e37d2d21c1768cf342900bce11ab4f0';
   const BASELINE_SHA = 'b840fcaa0851daf548c9c4c4dadf18d3cb78ebf9683fde897bb677b44a3ea872';
+  const PATCH_SHA = '0fbc5cd9f26ddced20f1b7cd27a61d5869dc19d2539854d109672e0f49c20830';
+  const PATCH_SIZE = 131783;
   const DEFAULT_SHARED = [0x448, 0x000, 0xeee];
 
   function setStatus(node, message, kind) {
@@ -71,7 +75,7 @@
     if (!spec || !spec.targetConfirmed) {
       setStatus(el.buildStatus, 'Confirme primeiro qual retrato deve ser substituído', 'error');
     } else if (!state.rom) {
-      setStatus(el.buildStatus, state.romFailure || 'Carregue a ROM original verificada para preparar a edição 2026.', state.romFailure ? 'error' : '');
+      setStatus(el.buildStatus, state.romFailure || 'Carregue a ROM original verificada para preparar a edição 2026.', state.romFailure && !state.awaitingPatch ? 'error' : '');
     } else if (!state.image || !state.conversion) {
       setStatus(el.buildStatus, 'Adicione uma foto e confira a prévia.');
     } else if (!state.baselineVisible) {
@@ -86,6 +90,7 @@
     return {
       romReady: Boolean(state.rom), imageReady: hasImage, previewReady: Boolean(state.conversion),
       sourceKind: state.sourceKind, sourceSha256: state.sourceSha256,
+      awaitingPatch: state.awaitingPatch, patchReady: Boolean(state.localPatch), patchLoading: state.patchLoading,
       baselineSha256: state.romHash, compositionReady: state.compositionReady,
       baselineVisible: state.baselineVisible, targetConfirmedInSpec: Boolean(spec && spec.targetConfirmed),
       targetConfirmedByUser: el.confirmTarget.checked, canBuild: canBuild(), building: state.building,
@@ -172,10 +177,12 @@
   }
 
   function localPatchBytes() {
+    if (state.localPatch) return state.localPatch;
     const packageData = window.LOCAL_GRID2026_PATCH;
     const contract = spec && spec.composition;
-    if (!pipeline || !contract || contract.verified !== true || !packageData || typeof packageData.base64 !== 'string')
-      throw new Error('Pacote 2026 local indisponível; prepare os dados locais do projeto.');
+    if (!pipeline || !contract || contract.verified !== true)
+      throw new Error('Os dados de composição verificada estão indisponíveis.');
+    if (!packageData || typeof packageData.base64 !== 'string') return null;
     if (!packageData.base64 || packageData.size !== contract.patch.size ||
         String(packageData.sha256).toLowerCase() !== String(contract.patch.sha256).toLowerCase())
       throw new Error('Pacote 2026 local não corresponde à edição verificada.');
@@ -190,10 +197,55 @@
     return patch;
   }
 
+  async function loadPatch(file) {
+    if (!file) return;
+    const token = ++state.patchToken;
+    state.localPatch = null; state.patchLoading = true;
+    // A replacement patch invalidates any composition using the previous patch.
+    if (state.sourceKind === 'original') {
+      state.romToken++; state.rom = null; state.romHash = ''; state.patchSha256 = null;
+      state.compositionReady = false; state.baselineVisible = false; state.awaitingPatch = true;
+      el.confirmTarget.checked = false; el.baselinePlaceholder.hidden = false;
+      clearCanvas(el.baselineCanvas); el.candidateDetails.hidden = true; el.candidateGrid.replaceChildren();
+      clearOutput();
+    }
+    setStatus(el.patchStatus, 'Lendo e verificando o IPS localmente…');
+    renderCustomizerState();
+    try {
+      if (!/\.ips$/i.test(file.name || '')) throw new Error('Selecione um arquivo .ips da edição verificada.');
+      if (file.size !== PATCH_SIZE) throw new Error('IPS recusado: tamanho diferente da edição verificada (131.783 bytes).');
+      if (!core || !pipeline || !spec || !spec.composition || spec.composition.verified !== true ||
+          spec.composition.patch.size !== PATCH_SIZE || String(spec.composition.patch.sha256).toLowerCase() !== PATCH_SHA)
+        throw new Error('Os dados de composição verificada estão indisponíveis.');
+      const patch = new Uint8Array(await file.arrayBuffer());
+      if (token !== state.patchToken) return;
+      if (patch.length !== PATCH_SIZE || String(await Promise.resolve(core.sha256(patch))).toLowerCase() !== PATCH_SHA)
+        throw new Error('IPS recusado: SHA-256 diferente da edição Grid2026 v3.3 verificada.');
+      if (token !== state.patchToken) return;
+      pipeline.parseIps(patch);
+      state.localPatch = patch; state.patchLoading = false;
+      setStatus(el.patchStatus, 'IPS Grid2026 v3.3 reconhecido · SHA-256 confirmado. O arquivo fica neste navegador.', 'success');
+      if (state.sourceKind === 'original' && state.sourceFile) await loadRom(state.sourceFile);
+    } catch (error) {
+      if (token !== state.patchToken) return;
+      state.localPatch = null;
+      setStatus(el.patchStatus, error.message || 'Não foi possível ler o IPS.', 'error');
+      if (state.sourceKind === 'original') {
+        state.romFailure = 'Selecione o IPS Grid2026 v3.3 verificado para preparar sua ROM original.';
+        setBadge(el.romBadge, 'IPS pendente');
+        setStatus(el.romStatus, state.romFailure);
+        setStatus(el.targetStatus, 'Aguardando o IPS verificado para preparar o retrato.');
+      }
+    } finally {
+      if (token === state.patchToken) { state.patchLoading = false; renderCustomizerState(); }
+    }
+  }
+
   async function loadRom(file) {
     const token = ++state.romToken;
     state.rom = null; state.romName = ''; state.romHash = ''; state.romFailure = '';
     state.sourceRom = null; state.sourceKind = null; state.sourceSha256 = '';
+    state.sourceFile = null; state.awaitingPatch = false;
     state.compositionReady = false; state.patchSha256 = null;
     state.baselineVisible = false; el.confirmTarget.checked = false;
     clearOutput(); clearCanvas(el.baselineCanvas); el.baselinePlaceholder.hidden = false;
@@ -223,13 +275,25 @@
       if (data.length === 1048576) {
         if (hash !== ORIGINAL_SHA)
           throw new Error('ROM original não reconhecida. Esta ferramenta aceita apenas a revisão americana verificada de 1 MiB; outras revisões não são compatíveis.');
-        state.sourceRom = data; state.sourceKind = 'original'; state.sourceSha256 = hash;
+        state.sourceRom = data; state.sourceKind = 'original'; state.sourceSha256 = hash; state.sourceFile = file;
         if (!spec.composition || !spec.composition.original || hash !== String(spec.composition.original.sha256).toLowerCase())
           throw new Error('Pacote 2026 local indisponível; prepare os dados locais do projeto.');
         setStatus(el.romStatus, 'Original reconhecida. Aplicando localmente a edição Grid2026 v3.3…');
         await new Promise(resolve => setTimeout(resolve, 0));
         if (token !== state.romToken) return;
         const patch = localPatchBytes();
+        if (!patch || state.patchLoading) {
+          state.awaitingPatch = true;
+          el.patchSection.hidden = false;
+          state.romFailure = state.patchLoading
+            ? 'Original reconhecida. Aguarde a verificação do IPS local.'
+            : 'Original reconhecida. Selecione abaixo seu IPS Grid2026 v3.3 verificado para preparar a edição 2026.';
+          setBadge(el.romBadge, 'IPS pendente');
+          setStatus(el.romStatus, state.romFailure);
+          setStatus(el.targetStatus, 'Aguardando o IPS verificado para preparar o retrato.');
+          renderCustomizerState();
+          return;
+        }
         const composed = await Promise.resolve(pipeline.compose2026(data, patch, spec.composition));
         if (token !== state.romToken) return;
         baseline = composed.rom; baselineHash = composed.sha256; patchHash = composed.patchSha256;
@@ -265,6 +329,7 @@
       state.rom = null; state.baselineVisible = false;
       el.confirmTarget.checked = false; el.baselinePlaceholder.hidden = false;
       state.romFailure = error.message || 'Não foi possível ler a ROM.';
+      if (state.sourceKind === 'original') el.patchSection.hidden = false;
       setBadge(el.romBadge, state.romFailure.startsWith('Pacote 2026') ? 'Pacote pendente' : 'ROM recusada', 'bad');
       setStatus(el.romStatus, state.romFailure, 'error');
       setStatus(el.targetStatus, 'Carregue a ROM verificada para ver o retrato.', 'error');
@@ -461,6 +526,11 @@
       el.downloadReport.href = reportUrl; el.downloadReport.download = safeDownloadName(state.romName) + '-validacao.json';
       el.downloadArea.hidden = false;
       setStatus(el.buildStatus, 'ROM validada e pronta para download. SHA-256: ' + result.sha256.slice(0, 16) + '…', 'success');
+      const revision = state.romToken + ':' + state.conversionToken;
+      if (state.lastCompletedRevision !== revision) {
+        state.lastCompletedRevision = revision;
+        window.dispatchEvent(new CustomEvent('smgp2:conversion-completed'));
+      }
     } catch (error) {
       if (token !== state.buildToken) return;
       setStatus(el.buildStatus, 'Não foi possível criar a ROM: ' + (error.message || error), 'error');
@@ -474,6 +544,8 @@
     el.targetLabel.textContent = spec.target.label;
   }
   el.candidateDetails.hidden = true;
+  el.patchSection.hidden = Boolean(window.LOCAL_GRID2026_PATCH && typeof window.LOCAL_GRID2026_PATCH.base64 === 'string');
+  el.patchFile.addEventListener('change', event => { const file = event.target.files[0]; event.target.value = ''; loadPatch(file); });
   el.romFile.addEventListener('change', event => { const file = event.target.files[0]; event.target.value = ''; loadRom(file); });
   el.photoFile.addEventListener('change', event => { const file = event.target.files[0]; event.target.value = ''; loadPhoto(file); });
   el.demoButton.addEventListener('click', makeDemo);

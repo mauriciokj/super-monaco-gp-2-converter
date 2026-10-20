@@ -14,6 +14,9 @@ allowed = {
     'personalizador-local/pipeline.js', 'personalizador-local/pipeline.test.cjs',
     'personalizador-local/prepare-local-data.py',
     'tests/verify_output.py', 'tests/audit_staged.py',
+    'personalizador-local/app.test.cjs', 'personalizador-local/analytics.js',
+    'personalizador-local/analytics.test.cjs', 'personalizador-local/prepare-public.py',
+    'tests/metrics-browser.cjs', 'tests/public_package_test.py', 'docs/PUBLISHING.md',
 }
 names = subprocess.check_output(['git', 'diff', '--cached', '--name-only', '-z']).decode().split('\0')
 files, failures = [], []
