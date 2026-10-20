@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Personalizador de retrato · Grid2026</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="core.js"></script>
+  <script defer src="spec.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="masthead">
+      <div class="brand-lockup"><span class="brand-mark" aria-hidden="true">G<span>26</span></span><span class="brand-name">GRID<span>2026</span> <small>LABORATÓRIO LOCAL</small></span></div>
+      <div class="top-label"><span class="live-dot" aria-hidden="true"></span> Prévia local · Grid2026 v3.3</div>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <div class="hero-copy">
+          <p class="eyebrow">SUPER MONACO GP II <span class="eyebrow-line"></span> EDIÇÃO PESSOAL</p>
+          <h1 id="page-title">Seu rosto.<br><em>Seu grid.</em></h1>
+          <p class="hero-description">Escolha sua ROM e uma foto pronta. Ajuste o enquadramento, confira o retrato em 9 cores e baixe uma nova cópia para jogar.</p>
+          <div class="privacy-pill"><span class="privacy-icon" aria-hidden="true">◆</span> Tudo acontece no seu navegador. Arquivos não são enviados.</div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="hero-ring ring-one"></div><div class="hero-ring ring-two"></div>
+          <div class="hero-number">11</div><div class="hero-stripe"></div>
+          <div class="hero-caption">PORTRAIT LAB<br><strong>64 × 64 PX</strong></div>
+        </div>
+      </section>
+
+      <div class="steps-bar" aria-label="Etapas"><span><b>01</b> ROM</span><i></i><span><b>02</b> FOTO</span><i></i><span><b>03</b> AJUSTE</span><i></i><span><b>04</b> DOWNLOAD</span></div>
+
+      <div class="workspace-grid">
+        <div class="main-column">
+          <section class="panel" aria-labelledby="rom-heading">
+            <div class="panel-heading"><div><span class="step-index">01 / ORIGINAL</span><h2 id="rom-heading">Escolha a ROM</h2></div><span id="romBadge" class="status-badge">Aguardando arquivo</span></div>
+            <p class="section-help">Use sua própria cópia da versão Grid2026 v3.3. O arquivo precisa ter exatamente 2 MiB e corresponder à versão verificada.</p>
+            <label class="dropzone" for="romFile" id="romDropzone"><span class="drop-icon" aria-hidden="true">↥</span><span class="drop-title">Selecione um arquivo .md, .bin ou .gen</span><span class="drop-sub">Clique aqui para procurar no computador</span></label>
+            <input id="romFile" type="file" accept=".md,.bin,.gen,application/octet-stream" aria-describedby="romStatus">
+            <p id="romStatus" class="field-status" role="status">Nenhuma ROM selecionada.</p>
+          </section>
+
+          <section class="panel" aria-labelledby="photo-heading">
+            <div class="panel-heading"><div><span class="step-index">02 / IMAGEM</span><h2 id="photo-heading">Adicione sua foto</h2></div><span id="photoBadge" class="status-badge">Aguardando imagem</span></div>
+            <p class="section-help">PNG, JPEG ou WebP. Até 20 MB e 32 megapixels. Uma foto de frente costuma funcionar melhor.</p>
+            <div class="photo-actions"><label class="button button-primary" for="photoFile">Escolher foto <span aria-hidden="true">↗</span></label><button class="button button-quiet" type="button" id="demoButton">Testar com arte de exemplo</button></div>
+            <input id="photoFile" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" aria-describedby="photoStatus">
+            <p id="photoStatus" class="field-status" role="status">Nenhuma imagem selecionada.</p>
+          </section>
+
+          <section class="panel" aria-labelledby="adjust-heading">
+            <div class="panel-heading"><div><span class="step-index">03 / ENQUADRAMENTO</span><h2 id="adjust-heading">Acerte o retrato</h2></div><span class="micro-label">64 × 64 PX</span></div>
+            <p class="section-help">A área quadrada vira o retrato no jogo. Ajuste a ampliação e a posição até ficar como você quer.</p>
+            <div class="editor-layout"><div class="crop-stage"><canvas id="cropCanvas" width="64" height="64" aria-label="Enquadramento da foto"></canvas><span class="stage-corner top-left"></span><span class="stage-corner top-right"></span><span class="stage-corner bottom-left"></span><span class="stage-corner bottom-right"></span><span class="canvas-placeholder" id="cropPlaceholder">Sua foto<br>aparece aqui</span></div>
+              <div class="controls"><label for="zoom">Ampliação <output id="zoomValue" for="zoom">1,00×</output></label><input id="zoom" type="range" min="1" max="4" step="0.01" value="1" disabled><label for="positionX">Posição horizontal <output id="xValue" for="positionX">50%</output></label><input id="positionX" type="range" min="0" max="100" step="1" value="50" disabled><label for="positionY">Posição vertical <output id="yValue" for="positionY">50%</output></label><input id="positionY" type="range" min="0" max="100" step="1" value="50" disabled><button id="resetButton" class="reset-button" type="button" disabled>↺ &nbsp; Redefinir ajuste</button></div></div>
+          </section>
+        </div>
+
+        <aside class="side-column" aria-label="Prévia e exportação">
+          <section class="panel preview-panel" aria-labelledby="preview-heading"><div class="panel-heading"><div><span class="step-index">PRÉVIA NO JOGO</span><h2 id="preview-heading">Veja o resultado</h2></div><span class="preview-bolt" aria-hidden="true">✦</span></div><div class="preview-display"><div class="preview-grid"><canvas id="previewCanvas" width="64" height="64" aria-label="Prévia quantizada em 9 cores"></canvas><span class="canvas-placeholder" id="previewPlaceholder">A prévia<br>aparece aqui</span></div></div><div class="palette-line"><span>PALETA</span><span id="colorCount">9 CORES</span></div><div id="paletteSwatches" class="swatches" aria-label="Cores do retrato"></div><p id="previewStatus" class="field-status" role="status">Adicione uma imagem para criar a prévia.</p></section>
+
+          <section class="panel target-panel" aria-labelledby="target-heading"><div class="panel-heading"><div><span class="step-index">RETRATO SUBSTITUÍDO</span><h2 id="target-heading">Confira o original</h2></div></div><div class="target-preview"><div class="target-thumb"><canvas id="baselineCanvas" width="64" height="64" aria-label="Retrato original extraído da ROM"></canvas><span class="canvas-placeholder" id="baselinePlaceholder">ROM</span></div><div class="target-meta"><span class="target-kicker" id="targetSlot">SLOT —</span><strong id="targetLabel">Alvo em verificação</strong><small>Retrato atual · cores iniciais do jogador</small></div></div><label class="confirm-row"><input id="confirmTarget" type="checkbox" disabled><span>Este é o retrato que quero substituir</span></label><p id="targetStatus" class="field-status" role="status">Carregue a ROM para conferir o retrato.</p><details id="candidateDetails" class="candidates"><summary>Ver outros retratos da ROM <span aria-hidden="true">⌄</span></summary><div id="candidateGrid" class="candidate-grid"></div></details></section>
+
+          <section class="panel export-panel" aria-labelledby="export-heading"><div><span class="step-index">04 / EXPORTAÇÃO</span><h2 id="export-heading">Pronto para a pista?</h2><p class="section-help">A cópia personalizada é criada no navegador. Guarde sua ROM original.</p></div><button id="buildButton" class="button button-export" type="button" disabled><span>Validar e criar ROM</span><span aria-hidden="true">→</span></button><p id="buildStatus" class="field-status" role="status">Conclua as etapas acima para continuar.</p><div id="downloadArea" class="download-area" hidden><a id="downloadRom" class="button button-download" href="#">Baixar ROM .bin <span aria-hidden="true">↓</span></a><a id="downloadReport" class="report-link" href="#">Baixar relatório de validação .json ↗</a></div></section>
+        </aside>
+      </div>
+    </main>
+    <footer><span>GRID2026 · PERSONALIZADOR LOCAL</span><span>Feito para uma cópia sua de Super Monaco GP II.</span></footer>
+  </div>
+</body>
+</html>
