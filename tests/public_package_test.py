@@ -80,7 +80,7 @@ class PublicPackageTests(unittest.TestCase):
     def test_modified_authorized_resources_and_unsafe_source_fail_closed(self):
         with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as output:
             source = Path(source)
-            for name in package.PUBLIC_FILES + ('season-provenance.json',):
+            for name in package.PUBLIC_FILES + ('season-provenance.json', 'ptbr-provenance.json'):
                 shutil.copyfile(package.SOURCE / name, source / name)
             with patch.object(package, 'SOURCE', source):
                 assets = source / 'season-assets.js'

@@ -39,6 +39,7 @@ function record(name, details = {}) { observations.push({ name, pass: true, ...d
   try {
     await page.goto(APP_URL);
     await page.waitForFunction(() => typeof window.renderCustomizerState === 'function');
+    await page.locator('#versionSelect').selectOption('v33');
     await page.evaluate(() => { window.__qaCompletedEvents = []; window.addEventListener('smgp2:conversion-completed', e => window.__qaCompletedEvents.push({ detail: e.detail })); });
     assert.equal(await page.locator('#buildButton').isDisabled(), true);
     await page.screenshot({ path: path.join(OUT, 'ui-initial.png'), fullPage: true });
@@ -157,6 +158,7 @@ function record(name, details = {}) { observations.push({ name, pass: true, ...d
     // Same production files opened directly: no server required for the user.
     await page.goto('file://' + path.join(ROOT, 'personalizador-local/index.html'));
     await page.waitForFunction(() => typeof window.renderCustomizerState === 'function');
+    await page.locator('#versionSelect').selectOption('v33');
     await page.locator('#romFile').setInputFiles(ROM); await ready('romReady');
     await page.locator('#demoButton').click(); await ready('previewReady');
     await page.locator('#confirmTarget').check(); await page.locator('#buildButton').click(); await ready('downloadReady');

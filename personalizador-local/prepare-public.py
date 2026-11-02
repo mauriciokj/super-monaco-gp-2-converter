@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 
 SOURCE = Path(__file__).resolve().parent
 PUBLIC_FILES = ('index.html', 'style.css', 'core.js', 'spec.js', 'pipeline.js',
-                'season-assets.js', 'season-recipe.js', 'app.js', 'analytics.js')
+                'season-assets.js', 'season-recipe.js', 'ptbr-delta.js', 'versions.js', 'app.js', 'analytics.js')
 SEASON_FILES = ('season-assets.js', 'season-recipe.js')
 
 
@@ -82,6 +82,11 @@ def prepare(output, canonical, metrics=False, custom_events=False):
         raise ValueError('Eventos personalizados estão desativados no plano Hobby confirmado.')
     contents = {name: (SOURCE / name).read_text() for name in PUBLIC_FILES}
     provenance = audit_season(contents)
+    ptbr = json.loads((SOURCE / 'ptbr-provenance.json').read_text())
+    raw_delta = contents['ptbr-delta.js'].encode('utf-8')
+    expected = ptbr['publicFiles']['ptbr-delta.js']
+    if hashlib.sha256(raw_delta).hexdigest() != expected['sha256'] or len(raw_delta) != expected['bytes']:
+        raise ValueError('Receita PT-BR difere da proveniência auditada.')
     html = contents['index.html']
     # Accept old reviewed source HTML only by removing the exact optional private tag.
     html = html.replace('  <script defer src="local-grid2026-data.js"></script>\n', '')
@@ -101,13 +106,14 @@ def prepare(output, canonical, metrics=False, custom_events=False):
     manifest = {'format': 'smgp2-public-reduced-recipe-v2', 'containsRom': False,
                 'containsFullSeasonPatch': False, 'containsAuthorizedPortraits': True,
                 'authorizedPortraitCount': 11, 'authorizedPortraitPayloadBytes': 25685,
+                'versions': ['v33', 'ptbr'], 'ptbr': ptbr,
                 'flow': 'original + image', 'composition': 'automatic-reduced-recipe',
                 'advancedFlow': 'visitor-provided verified Grid2026 + image',
                 'metrics': config, 'files': {}}
     forbidden = re.compile(rb'(?:local-grid2026-data|LOCAL_GRID2026_PATCH|-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:gh[pousr]_[A-Za-z0-9]{20,}|sk-proj-[A-Za-z0-9_-]{20,}|AKIA[A-Z0-9]{16})\b)')
     for name, text in contents.items():
         raw = text.encode('utf-8')
-        if (b'\0' in raw or len(raw) > 200000 or re.search(rb'/(?:Users|home)/[A-Za-z0-9_.-]+/', raw)
+        if (b'\0' in raw or len(raw) > (300000 if name == 'ptbr-delta.js' else 200000) or re.search(rb'/(?:Users|home)/[A-Za-z0-9_.-]+/', raw)
                 or forbidden.search(raw) or re.search(rb'(?i)base64\s*[:=]\s*[\'"][A-Za-z0-9+/=]{256,}', raw)
                 or name != 'season-assets.js' and re.search(rb'[\'"][0-9a-fA-F]{1024,}[\'"]', raw)):
             raise ValueError('Arquivo inesperado no pacote: ' + name)

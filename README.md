@@ -1,3 +1,9 @@
+# Grid 2026 — conversor com duas versões
+
+A interface oferece **v3.3** e **PT-BR com Audio 2 + Kimi**. A foto continua substituindo apenas o piloto do jogador (slot 11). ROM e foto são processadas localmente; a publicação contém código, recursos autorizados e receitas incrementais, nunca a ROM comercial completa.
+
+Consulte [versões, preservação, testes e rollback](docs/VERSIONS.md) e o [roteiro proposto para o vídeo](docs/VIDEO-PTBR.md). Os detalhes abaixo descrevem a receita original v3.3, mantida como primeira etapa das duas opções.
+
 # Super Monaco GP 2 Converter
 
 Prévia local: **ROM original USA suportada + foto → edição completa Grid 2026 v3.3 + retrato personalizado**. Você escolhe a ROM original sem modificações e uma imagem pronta, ajusta o enquadramento, confere a prévia e baixa uma nova cópia de 2 MiB.

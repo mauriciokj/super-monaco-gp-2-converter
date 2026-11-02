@@ -14,6 +14,8 @@ FILES = {
     '/pipeline.js': ('pipeline.js', 'text/javascript; charset=utf-8'),
     '/season-assets.js': ('season-assets.js', 'text/javascript; charset=utf-8'),
     '/season-recipe.js': ('season-recipe.js', 'text/javascript; charset=utf-8'),
+    '/ptbr-delta.js': ('ptbr-delta.js', 'text/javascript; charset=utf-8'),
+    '/versions.js': ('versions.js', 'text/javascript; charset=utf-8'),
     '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
     '/style.css': ('style.css', 'text/css; charset=utf-8'),
 }

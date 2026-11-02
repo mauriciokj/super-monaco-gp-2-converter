@@ -55,6 +55,18 @@ function harness({ missingRecipe = false, failRecipe = false, failBuild = false,
     if (failRecipe) throw new Error('Season assets integrity mismatch');
     return { rom: baseline(), sha256: spec.baseline.sha256, recipeSha256: 'synthetic-recipe-hash' };
   } };
+  window.Grid2026Versions = {
+    defaultId: 'v33', get: () => ({spec, description: 'test release', label: 'Grid2026 v3.3', suffix: 'v3.3'}),
+    compose(data) {
+      const sourceSha256 = sha256(data);
+      if (data.length === 1048576) {
+        if (sourceSha256 !== spec.composition.original.sha256) throw new Error('ROM original não reconhecida');
+        if (!window.Season2026) throw new Error('Receita indisponível');
+        return {...window.Season2026.compose(data), sourceSha256, sourceKind: 'original', compositionReady: true};
+      }
+      return {...window.Grid2026Pipeline.validateBaseline(data), sourceSha256, sourceKind: 'baseline', compositionReady: false};
+    }
+  };
   let urls = 0;
   vm.runInNewContext(source, { window, document, Uint8Array, Uint8ClampedArray, ImageData: class {},
     CustomEvent: class { constructor(type) { this.type = type; this.detail = null; } },

@@ -65,3 +65,12 @@
 # Private 2026 delta contains game graphics; never publish or force-add it.
 /private-local/
 /personalizador-local/local-grid2026-data.js
+
+!/personalizador-local/versions.js
+!/personalizador-local/versions.test.cjs
+!/personalizador-local/ptbr-delta.js
+!/personalizador-local/ptbr-provenance.json
+!/personalizador-local/prepare-ptbr-delta.py
+!/tests/versions-browser.cjs
+!/docs/VERSIONS.md
+!/docs/VIDEO-PTBR.md

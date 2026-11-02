@@ -1,0 +1,33 @@
+{
+  "format": "incremental-ptbr-source-copy-v1",
+  "sourceSha256": "b840fcaa0851daf548c9c4c4dadf18d3cb78ebf9683fde897bb677b44a3ea872",
+  "targetSha256": "83ff290cfca22a52f97c18134d86af012848c7e591627c6d96dba4e893aff3a9",
+  "dataSha256": "c5d0242e330db7e87e9afb376c01e8d710c5e63a63d102d6cb1fb278eb19e6cd",
+  "publicFiles": {
+    "ptbr-delta.js": {
+      "sha256": "fea026efe2be4523158992eb59f008106920007ebcd0f0595abb7b5717350ac8",
+      "bytes": 247947
+    }
+  },
+  "operations": 1431,
+  "literalBytes": 109471,
+  "sourceCopyBytes": 30068,
+  "fillBytes": 1620,
+  "scope": [
+    "PT-BR text and graphical translation differences",
+    "seven authorized ElevenLabs narrator samples",
+    "Kimi portrait and three-slot grid rearrangement"
+  ],
+  "notIncluded": [
+    "complete ROM",
+    "original ROM audio files",
+    "reference photos",
+    "API credentials"
+  ],
+  "playerSlot": 11,
+  "preservedPlayerRecord": "0007c73c0007c9500007fd44",
+  "freePlayerBank": [
+    1134592,
+    1138688
+  ]
+}

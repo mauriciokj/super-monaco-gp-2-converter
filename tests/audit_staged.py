@@ -6,6 +6,10 @@ import re
 import subprocess
 
 allowed = {
+    'personalizador-local/versions.js', 'personalizador-local/versions.test.cjs',
+    'personalizador-local/ptbr-delta.js', 'personalizador-local/ptbr-provenance.json',
+    'personalizador-local/prepare-ptbr-delta.py', 'tests/versions-browser.cjs',
+    'docs/VERSIONS.md', 'docs/VIDEO-PTBR.md',
     '.gitignore', 'README.md', 'docs/TECHNICAL.md', 'docs/VALIDATION.md',
     'personalizador-local/index.html', 'personalizador-local/app.js',
     'personalizador-local/core.js', 'personalizador-local/core.test.cjs',
@@ -38,7 +42,7 @@ for name in filter(None, names):
     except UnicodeDecodeError:
         failures.append({'file': name, 'reason': 'binary or non-UTF8 data'})
         continue
-    if b'\0' in data or len(data) > 200_000:
+    if b'\0' in data or len(data) > (300_000 if name == 'personalizador-local/ptbr-delta.js' else 200_000):
         failures.append({'file': name, 'reason': 'NUL bytes or unexpected file size'})
     for kind, pattern in patterns:
         if pattern.search(text):

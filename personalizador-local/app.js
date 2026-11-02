@@ -2,11 +2,13 @@
   'use strict';
 
   const core = window.RomCustomizer;
-  const spec = window.PORTRAIT_SPEC;
-  const pipeline = window.Grid2026Pipeline;
-  const season = window.Season2026;
+  const versions = window.Grid2026Versions;
+  let releaseId = versions.defaultId;
+  let spec = versions.get(releaseId).spec;
+  let lastRomFile = null;
   const $ = id => document.getElementById(id);
   const el = {
+    versionSelect: $('versionSelect'), versionDescription: $('versionDescription'),
     romFile: $('romFile'), romDropzone: $('romDropzone'), romStatus: $('romStatus'), romBadge: $('romBadge'),
     photoFile: $('photoFile'), photoStatus: $('photoStatus'), photoBadge: $('photoBadge'), demoButton: $('demoButton'),
     cropCanvas: $('cropCanvas'), cropPlaceholder: $('cropPlaceholder'), zoom: $('zoom'), zoomValue: $('zoomValue'),
@@ -26,8 +28,6 @@
   };
   const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
   const MAX_PIXELS = 32 * 1000 * 1000;
-  const ORIGINAL_SHA = 'c02206602e00dd8e9b6c38943b8a3be41e37d2d21c1768cf342900bce11ab4f0';
-  const BASELINE_SHA = 'b840fcaa0851daf548c9c4c4dadf18d3cb78ebf9683fde897bb677b44a3ea872';
   const DEFAULT_SHARED = [0x448, 0x000, 0xeee];
 
   function setStatus(node, message, kind) {
@@ -86,7 +86,7 @@
     }
     return {
       romReady: Boolean(state.rom), imageReady: hasImage, previewReady: Boolean(state.conversion),
-      sourceKind: state.sourceKind, sourceSha256: state.sourceSha256,
+      releaseId, sourceKind: state.sourceKind, sourceSha256: state.sourceSha256,
       compositionMethod: state.compositionReady ? 'automatic-reduced-recipe' : null,
       baselineSha256: state.romHash, compositionReady: state.compositionReady,
       baselineVisible: state.baselineVisible, targetConfirmedInSpec: Boolean(spec && spec.targetConfirmed),
@@ -174,6 +174,8 @@
   }
 
   async function loadRom(file) {
+    lastRomFile = file || null;
+    const selectedId = releaseId;
     const token = ++state.romToken;
     state.rom = null; state.romName = ''; state.romHash = ''; state.romFailure = '';
     state.sourceRom = null; state.sourceKind = null; state.sourceSha256 = '';
@@ -195,52 +197,24 @@
       if (!/\.(md|bin|gen)$/i.test(file.name || '')) throw new Error('Formato recusado. Selecione .md, .bin ou .gen; arquivos .smd e .zip não são aceitos.');
       if (!spec || !spec.baseline || !core) throw new Error('Os dados de validação ainda não estão disponíveis.');
       if (file.size !== 1048576 && file.size !== 2097152)
-        throw new Error('Tamanho incorreto. Use a ROM original americana de 1 MiB ou a Grid2026 v3.3 de 2 MiB.');
+        throw new Error('Tamanho incorreto. Use a ROM original americana de 1 MiB ou uma edição verificada de 2 MiB.');
       const data = new Uint8Array(await file.arrayBuffer());
       if (token !== state.romToken) return;
       await new Promise(resolve => setTimeout(resolve, 0));
       if (token !== state.romToken) return;
-      const hash = String(await Promise.resolve(core.sha256(data))).toLowerCase();
+      setStatus(el.romStatus, 'Preparando localmente ' + versions.get(selectedId).label + '…');
+      const composed = await Promise.resolve(versions.compose(data, selectedId));
       if (token !== state.romToken) return;
-      let baseline, baselineHash, recipeHash = null, sourceKind, compositionReady = false;
-      if (data.length === 1048576) {
-        if (hash !== ORIGINAL_SHA)
-          throw new Error('ROM original não reconhecida. Esta ferramenta aceita apenas a revisão americana verificada de 1 MiB; outras revisões não são compatíveis.');
-        if (!season || typeof season.compose !== 'function')
-          throw new Error('A receita da temporada está indisponível. Reabra a versão completa do personalizador.');
-        setStatus(el.romStatus, 'Original reconhecida. Preparando localmente a edição Grid2026 v3.3…');
-        await new Promise(resolve => setTimeout(resolve, 0));
-        if (token !== state.romToken) return;
-        const composed = await Promise.resolve(season.compose(data));
-        if (token !== state.romToken) return;
-        baseline = composed.rom; baselineHash = composed.sha256; recipeHash = composed.recipeSha256;
-        sourceKind = 'original'; compositionReady = true;
-      } else {
-        if (hash !== BASELINE_SHA || hash !== String(spec.baseline.sha256).toLowerCase())
-          throw new Error('Grid2026 v3.3 não reconhecida. Use a cópia verificada de 2 MiB ou a ROM original americana de 1 MiB.');
-        if (pipeline && spec.composition && spec.composition.verified === true) {
-          const checked = await Promise.resolve(pipeline.validateBaseline(data, spec.composition));
-          baseline = checked.rom; baselineHash = checked.sha256;
-        } else {
-          const checksum = core.checksumGenesis(data);
-          if (checksum !== spec.baseline.checksum || (data[0x18e] << 8 | data[0x18f]) !== checksum)
-            throw new Error('Checksum da Grid2026 v3.3 não corresponde à versão verificada.');
-          baseline = data; baselineHash = hash;
-        }
-        sourceKind = 'baseline';
-      }
-      if (baseline.length !== 2097152 || baselineHash !== BASELINE_SHA)
-        throw new Error('A edição 2026 resultante não corresponde à base verificada.');
+      const {rom: baseline, sha256: baselineHash, recipeSha256: recipeHash,
+        sourceSha256: hash, sourceKind, compositionReady} = composed;
       displayBaseline(baseline);
       if (token !== state.romToken) return;
       state.rom = baseline; state.romHash = baselineHash; state.romName = file.name;
       state.sourceRom = data; state.sourceKind = sourceKind; state.sourceSha256 = hash;
       state.compositionReady = compositionReady; state.recipeSha256 = recipeHash;
       state.romFailure = '';
-      setBadge(el.romBadge, sourceKind === 'original' ? 'Edição 2026 pronta' : 'ROM validada', 'ok');
-      setStatus(el.romStatus, sourceKind === 'original'
-        ? 'Original reconhecida · edição 2026 preparada. SHA-256 da base confirmado.'
-        : 'Grid2026 v3.3 reconhecida · SHA-256 confirmado.', 'success');
+      setBadge(el.romBadge, 'Versão pronta', 'ok');
+      setStatus(el.romStatus, versions.get(selectedId).label + ' preparada · SHA-256 da base confirmado.', 'success');
     } catch (error) {
       if (token !== state.romToken) return;
       state.rom = null; state.baselineVisible = false;
@@ -421,7 +395,7 @@
         throw new Error('O resultado não passou na validação de tamanho.');
       const report = {
         format: 'Grid2026 original-to-season-to-portrait validation report', version: spec.version,
-        stages: state.sourceKind === 'original' ? ['original', 'Grid2026 v3.3', 'personalized portrait'] : ['Grid2026 v3.3', 'personalized portrait'],
+        releaseId, stages: [state.sourceKind, spec.baseline.label, 'personalized portrait'],
         source: { kind: state.sourceKind, size: state.sourceRom.length, sha256: state.sourceSha256 },
         composition: {
           applied: state.compositionReady, baselineSha256: state.romHash,
@@ -439,8 +413,8 @@
       const romUrl = URL.createObjectURL(new Blob([result.rom], { type: 'application/octet-stream' }));
       const reportUrl = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2) + '\n'], { type: 'application/json' }));
       state.outputUrls.push(romUrl, reportUrl);
-      el.downloadRom.href = romUrl; el.downloadRom.download = safeDownloadName(state.romName) + '-retrato-grid2026.bin';
-      el.downloadReport.href = reportUrl; el.downloadReport.download = safeDownloadName(state.romName) + '-validacao.json';
+      el.downloadRom.href = romUrl; el.downloadRom.download = safeDownloadName(state.romName) + '-' + versions.get(releaseId).suffix + '-retrato.bin';
+      el.downloadReport.href = reportUrl; el.downloadReport.download = safeDownloadName(state.romName) + '-' + versions.get(releaseId).suffix + '-validacao.json';
       el.downloadArea.hidden = false;
       setStatus(el.buildStatus, 'ROM validada e pronta para download. SHA-256: ' + result.sha256.slice(0, 16) + '…', 'success');
       const revision = state.romToken + ':' + state.conversionToken;
@@ -460,6 +434,15 @@
     el.targetSlot.textContent = 'SLOT ' + String(spec.target.slot).padStart(2, '0');
     el.targetLabel.textContent = spec.target.label;
   }
+  el.versionSelect.value = releaseId;
+  el.versionDescription.textContent = versions.get(releaseId).description;
+  el.versionSelect.addEventListener('change', () => {
+    releaseId = el.versionSelect.value;
+    spec = versions.get(releaseId).spec;
+    el.versionDescription.textContent = versions.get(releaseId).description;
+    // Re-read the existing local File. A new token invalidates pending reads/builds.
+    loadRom(lastRomFile);
+  });
   el.candidateDetails.hidden = true;
   el.romFile.addEventListener('change', event => { const file = event.target.files[0]; event.target.value = ''; loadRom(file); });
   el.photoFile.addEventListener('change', event => { const file = event.target.files[0]; event.target.value = ''; loadPhoto(file); });
